@@ -1,0 +1,12 @@
+# Local planning and workflow files
+game_plan.md
+project-context.md
+.github/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
