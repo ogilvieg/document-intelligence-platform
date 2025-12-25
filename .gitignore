@@ -2,6 +2,7 @@
 game_plan.md
 project-context.md
 .github/
+docs/implementation-notes/
 
 # OS files
 .DS_Store
