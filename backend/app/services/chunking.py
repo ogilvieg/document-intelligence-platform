@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 import structlog
 
 from app.config import settings
+from app.models.database import ChunkCreate, ChunkInDB
+from app.services.database import get_db_service
 
 logger = structlog.get_logger()
 
@@ -15,7 +17,8 @@ class ChunkingService:
     def __init__(
         self,
         chunk_size: Optional[int] = None,
-        chunk_overlap: Optional[int] = None
+        chunk_overlap: Optional[int] = None,
+        persist_to_db: bool = True
     ):
         """
         Initialize chunking service.
@@ -23,9 +26,11 @@ class ChunkingService:
         Args:
             chunk_size: Size of each chunk in characters (defaults to settings.chunk_size)
             chunk_overlap: Overlap between chunks in characters (defaults to settings.chunk_overlap)
+            persist_to_db: Whether to persist chunks to database (default: True)
         """
         self.chunk_size = chunk_size or settings.chunk_size
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
+        self.persist_to_db = persist_to_db
         
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be less than chunk_size")
@@ -33,32 +38,49 @@ class ChunkingService:
         logger.info(
             "chunking_service_initialized",
             chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap
+            chunk_overlap=self.chunk_overlap,
+            persist_to_db=self.persist_to_db
         )
     
-    def chunk_text(
+    async def chunk_text(
         self,
         text: str,
         document_id: UUID,
+        doc_type: str,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> List[ChunkInDB]:
         """
         Split text into fixed-size chunks with overlap.
         
         Uses character-based chunking with sliding window approach.
         Tries to break at sentence boundaries when possible.
         
+        IDEMPOTENT: If chunks already exist for this document, returns existing chunks.
+        
         Args:
             text: The text to chunk
             document_id: UUID of the parent document
+            doc_type: Document type (resume, jd, policy, etc.)
             metadata: Optional metadata to attach to each chunk
             
         Returns:
-            List of chunk dictionaries with id, text, index, and metadata
+            List of ChunkInDB objects (persisted to database if persist_to_db=True)
         """
         if not text or not text.strip():
             logger.warning("chunk_text_called_with_empty_text", document_id=str(document_id))
             return []
+        
+        # Check if chunks already exist (idempotency)
+        if self.persist_to_db:
+            db = get_db_service()
+            existing_chunks = await db.get_chunks_by_document(document_id)
+            if existing_chunks:
+                logger.info(
+                    "chunks_already_exist",
+                    document_id=str(document_id),
+                    chunk_count=len(existing_chunks)
+                )
+                return existing_chunks
         
         logger.info(
             "chunking_started",
@@ -68,7 +90,7 @@ class ChunkingService:
             chunk_overlap=self.chunk_overlap
         )
         
-        chunks = []
+        chunk_dicts = []
         start = 0
         chunk_index = 0
         
@@ -110,16 +132,22 @@ class ChunkingService:
             
             # Skip empty chunks
             if chunk_text:
-                chunk = {
-                    'id': uuid4(),
+                # Build chunk metadata
+                chunk_metadata = metadata.copy() if metadata else {}
+                chunk_metadata.update({
+                    'start_char': start,
+                    'end_char': min(start + len(chunk_text), len(text)),
+                    'doc_type': doc_type
+                })
+                
+                chunk_dict = {
                     'document_id': document_id,
                     'chunk_index': chunk_index,
                     'text': chunk_text,
-                    'start_char': start,
-                    'end_char': min(start + len(chunk_text), len(text)),
-                    'metadata': metadata or {}
+                    'token_count': self._estimate_tokens(chunk_text),
+                    'metadata': chunk_metadata
                 }
-                chunks.append(chunk)
+                chunk_dicts.append(chunk_dict)
                 chunk_index += 1
             
             # Move to next chunk with overlap
@@ -132,16 +160,54 @@ class ChunkingService:
         logger.info(
             "chunking_completed",
             document_id=str(document_id),
-            total_chunks=len(chunks),
-            avg_chunk_size=sum(len(c['text']) for c in chunks) / len(chunks) if chunks else 0
+            total_chunks=len(chunk_dicts),
+            avg_chunk_size=sum(len(c['text']) for c in chunk_dicts) / len(chunk_dicts) if chunk_dicts else 0
         )
         
-        return chunks
+        # Persist to database if enabled
+        if self.persist_to_db and chunk_dicts:
+            try:
+                db = get_db_service()
+                chunk_creates = [ChunkCreate(**chunk) for chunk in chunk_dicts]
+                persisted_chunks = await db.create_chunks(chunk_creates)
+                logger.info("chunks_persisted_to_db", count=len(persisted_chunks))
+                return persisted_chunks
+            except Exception as e:
+                logger.error("chunk_persistence_failed", error=str(e))
+                raise
+        
+        # If not persisting, return as ChunkInDB objects with generated IDs
+        # (for testing or temporary use)
+        from datetime import datetime
+        return [
+            ChunkInDB(
+                id=uuid4(),
+                created_at=datetime.utcnow(),
+                **chunk
+            )
+            for chunk in chunk_dicts
+        ]
     
-    def chunk_document(
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        Estimate token count for a text string.
+        
+        Uses a simple heuristic: ~4 characters per token for English.
+        For production, consider using tiktoken library.
+        
+        Args:
+            text: Text to estimate tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        return len(text) // 4
+    
+    async def chunk_document(
         self,
         document_text: str,
         document_id: UUID,
+        doc_type: str,
         document_metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
@@ -150,17 +216,21 @@ class ChunkingService:
         This is a convenience method that wraps chunk_text and adds
         summary statistics.
         
+        IDEMPOTENT: Reuses existing chunks if they already exist in database.
+        
         Args:
             document_text: The full document text
             document_id: UUID of the document
+            doc_type: Document type (resume, jd, policy, etc.)
             document_metadata: Metadata from document ingestion
             
         Returns:
             Dictionary with chunks and statistics
         """
-        chunks = self.chunk_text(
+        chunks = await self.chunk_text(
             text=document_text,
             document_id=document_id,
+            doc_type=doc_type,
             metadata=document_metadata
         )
         
@@ -173,11 +243,11 @@ class ChunkingService:
                 'average_chunk_size': 0
             }
         
-        total_chars = sum(len(chunk['text']) for chunk in chunks)
+        total_chars = sum(len(chunk.text) for chunk in chunks)
         
         return {
             'document_id': document_id,
-            'chunks': chunks,
+            'chunks': [chunk.model_dump() for chunk in chunks],  # Convert to dict for JSON
             'total_chunks': len(chunks),
             'total_characters': total_chars,
             'average_chunk_size': total_chars / len(chunks),
@@ -185,7 +255,7 @@ class ChunkingService:
             'chunk_overlap_config': self.chunk_overlap
         }
     
-    def validate_chunks(self, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def validate_chunks(self, chunks: List[ChunkInDB]) -> Dict[str, Any]:
         """
         Validate chunks for quality and consistency.
         
@@ -195,7 +265,7 @@ class ChunkingService:
         - Coverage of original text
         
         Args:
-            chunks: List of chunk dictionaries
+            chunks: List of ChunkInDB objects
             
         Returns:
             Validation report with warnings and statistics
@@ -206,7 +276,7 @@ class ChunkingService:
         warnings = []
         
         # Check chunk sizes
-        sizes = [len(chunk['text']) for chunk in chunks]
+        sizes = [len(chunk.text) for chunk in chunks]
         min_size = min(sizes)
         max_size = max(sizes)
         avg_size = sum(sizes) / len(sizes)
@@ -222,8 +292,8 @@ class ChunkingService:
         # Check for overlap in consecutive chunks
         has_overlap = False
         for i in range(len(chunks) - 1):
-            current_text = chunks[i]['text']
-            next_text = chunks[i + 1]['text']
+            current_text = chunks[i].text
+            next_text = chunks[i + 1].text
             
             # Check if there's any overlapping text
             overlap_check = current_text[-50:] if len(current_text) >= 50 else current_text
