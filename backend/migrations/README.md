@@ -167,4 +167,4 @@ Once your database is set up:
 3. ✅ Build RetrievalService
 4. ✅ Test end-to-end flow
 
-See `project-context.md` for implementation details.
+See the main project README for implementation details.
