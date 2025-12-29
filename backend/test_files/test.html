@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test HTML Document</title>
+  </head>
+  <body>
+    <h1>Document Intelligence Platform Test</h1>
+
+    <h2>Introduction</h2>
+    <p>
+      This is a test HTML document to verify the document ingestion pipeline's
+      HTML parsing capabilities.
+    </p>
+
+    <h2>Features</h2>
+    <ul>
+      <li>HTML tag stripping</li>
+      <li>Text extraction</li>
+      <li>Structure preservation</li>
+      <li>Metadata handling</li>
+    </ul>
+
+    <h2>Technical Details</h2>
+    <p>
+      The system uses <strong>BeautifulSoup</strong> to parse HTML and extract
+      clean text content while removing scripts, styles, and other non-content
+      elements.
+    </p>
+
+    <div class="code-example">
+      <h3>Example Code</h3>
+      <pre>
+const analyzeDocument = async (docId) => {
+    const result = await fetch(`/api/v1/analyze`, {
+        method: 'POST',
+        body: JSON.stringify({ document_ids: [docId] })
+    });
+    return result.json();
+};
+        </pre
+      >
+    </div>
+
+    <h2>Conclusion</h2>
+    <p>HTML parsing is working correctly if this text is extracted cleanly.</p>
+
+    <script>
+      // This script should be removed during parsing
+      console.log("This should not appear in extracted text");
+    </script>
+
+    <style>
+      /* This style should be removed during parsing */
+      body {
+        background: white;
+      }
+    </style>
+  </body>
+</html>
