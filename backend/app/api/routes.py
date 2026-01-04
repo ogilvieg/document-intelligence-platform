@@ -1,6 +1,6 @@
 """API routes."""
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form, Depends
 from typing import List, Optional
 from datetime import datetime
 from uuid import uuid4, UUID
@@ -22,6 +22,7 @@ from app.models.database import (
 from app.services import LLMService, DocumentIngestionService, ChunkingService
 from app.services.embedding_service import EmbeddingService
 from app.services.retrieval import RetrievalService
+from app.middleware.auth import verify_api_key
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -34,7 +35,7 @@ embedding_service = EmbeddingService()
 retrieval_service = RetrievalService(embedding_service=embedding_service)
 
 
-@router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def upload_document(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
@@ -142,7 +143,7 @@ async def upload_document(
         )
 
 
-@router.post("/analyze", response_model=AnalysisResponse)
+@router.post("/analyze", response_model=AnalysisResponse, dependencies=[Depends(verify_api_key)])
 async def analyze_documents(request: AnalysisRequest):
     """
     Run analysis on uploaded documents.
@@ -257,7 +258,7 @@ async def get_document(document_id: str):
 
 # ============= Week 2: RAG Endpoints =============
 
-@router.post("/documents/{document_id}/generate-embeddings")
+@router.post("/documents/{document_id}/generate-embeddings", dependencies=[Depends(verify_api_key)])
 async def generate_embeddings(document_id: UUID):
     """
     Generate embeddings for all chunks of a document.
@@ -318,7 +319,7 @@ async def generate_embeddings(document_id: UUID):
         )
 
 
-@router.post("/search/chunks")
+@router.post("/search/chunks", dependencies=[Depends(verify_api_key)])
 async def search_chunks(
     query: str,
     filters: Optional[SearchFilters] = None,
@@ -413,7 +414,7 @@ class RAGAnalysisRequest(PydanticBaseModel):
     temperature: float = 0.7
 
 
-@router.post("/analyze-rag")
+@router.post("/analyze-rag", dependencies=[Depends(verify_api_key)])
 async def analyze_with_rag(request: RAGAnalysisRequest):
     """
     Analyze documents using RAG (Retrieval-Augmented Generation).

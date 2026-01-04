@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000"
     
+    # Security
+    api_key: str = ""  # Optional: Set to enable API key authentication
+    
     # Observability
     log_level: str = "INFO"
     

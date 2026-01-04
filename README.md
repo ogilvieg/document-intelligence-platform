@@ -2,6 +2,10 @@
 
 A production-ready AI system for intelligent document analysis using **Retrieval-Augmented Generation (RAG)** with comprehensive traceability. The platform ingests documents, performs semantic search with pgvector, and delivers structured analysis with full citation tracking and cost transparency.
 
+> **📚 [Project Documentation](DEMO.md)** | **� [Deployment Guide](DEPLOYMENT.md)**
+>
+> **Live Demo:** Available upon request to prevent API abuse. Contact for access credentials.
+
 ## 🚀 Features
 
 ### Week 1: MVP Foundation

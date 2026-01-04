@@ -1,0 +1,15 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "deploy": {
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  },
+  "healthCheck": {
+    "path": "/health",
+    "port": 8000,
+    "initialDelaySeconds": 10,
+    "periodSeconds": 30
+  }
+}
