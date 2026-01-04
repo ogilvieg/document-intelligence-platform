@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useDocumentUpload, useDocumentAnalysis } from "@/lib/hooks";
+import { useDocumentUpload, useRAGAnalysis } from "@/lib/hooks";
 import { formatFileSize, formatLatency, formatCost } from "@/lib/api-client";
 
 export default function Home() {
   const { upload, isUploading, uploadError, uploadedDocument, resetUpload } =
     useDocumentUpload();
-  const { analyze, isAnalyzing, analysisError, analysisResult, resetAnalysis } =
-    useDocumentAnalysis();
+  const {
+    analyzeWithRAG,
+    isAnalyzing,
+    analysisError,
+    analysisResult,
+    resetAnalysis,
+  } = useRAGAnalysis();
 
   const [dragActive, setDragActive] = useState(false);
+  const [showRetrievalDetails, setShowRetrievalDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle drag events
@@ -59,15 +65,14 @@ export default function Home() {
   const handleAnalyze = async () => {
     if (!uploadedDocument) return;
 
-    await analyze({
+    const query = `Analyze this ${uploadedDocument.type} document: ${uploadedDocument.title}. 
+    Provide a comprehensive assessment including overall fit, strengths, gaps, risk factors, and recommended focus areas.`;
+
+    await analyzeWithRAG(query, {
       document_ids: [uploadedDocument.id],
-      options: {
-        context: `Analyzing document: ${
-          uploadedDocument.title
-        }. Document type: ${uploadedDocument.type}. Contains ${
-          uploadedDocument.metadata.chunks?.total_chunks || 0
-        } chunks.`,
-      },
+      top_k: 5,
+      similarity_threshold: 0.5,
+      temperature: 0.7,
     });
   };
 
@@ -271,13 +276,167 @@ export default function Home() {
               </h2>
               <div className="flex gap-4 text-sm">
                 <span className="text-slate-600 dark:text-slate-400">
-                  ⚡ {formatLatency(analysisResult.latency_ms)}
+                  🔍 {analysisResult.retrieval_metadata.chunks_retrieved} chunks
                 </span>
                 <span className="text-slate-600 dark:text-slate-400">
                   💰 {formatCost(analysisResult.cost)}
                 </span>
               </div>
             </div>
+
+            {/* Retrieval Traceability Section */}
+            <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 uppercase tracking-wide flex items-center gap-2">
+                  <span>🔍</span> Retrieval Pipeline
+                </h3>
+                <button
+                  onClick={() => setShowRetrievalDetails(!showRetrievalDetails)}
+                  className="text-xs text-indigo-700 dark:text-indigo-300 hover:underline"
+                >
+                  {showRetrievalDetails ? "Hide Details" : "Show Details"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
+                    Chunks Retrieved
+                  </p>
+                  <p className="text-slate-800 dark:text-slate-200">
+                    {analysisResult.retrieval_metadata.chunks_retrieved}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
+                    Embedding Model
+                  </p>
+                  <p className="text-slate-800 dark:text-slate-200 text-xs">
+                    {analysisResult.retrieval_metadata.query_embedding_model}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
+                    LLM Tokens
+                  </p>
+                  <p className="text-slate-800 dark:text-slate-200">
+                    {analysisResult.llm_metadata.total_tokens.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Collapsible Details */}
+              {showRetrievalDetails && (
+                <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800 space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
+                        LLM Model
+                      </p>
+                      <p className="text-slate-800 dark:text-slate-200 text-xs">
+                        {analysisResult.llm_metadata.model}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
+                        Temperature
+                      </p>
+                      <p className="text-slate-800 dark:text-slate-200">
+                        {analysisResult.llm_metadata.temperature}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
+                        Prompt Tokens
+                      </p>
+                      <p className="text-slate-800 dark:text-slate-200">
+                        {analysisResult.llm_metadata.prompt_tokens.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
+                        Completion Tokens
+                      </p>
+                      <p className="text-slate-800 dark:text-slate-200">
+                        {analysisResult.llm_metadata.completion_tokens.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {analysisResult.retrieval_metadata.filters && (
+                    <div>
+                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1 text-sm">
+                        Filters Applied
+                      </p>
+                      <div className="bg-white dark:bg-slate-700 rounded p-2 text-xs">
+                        <pre className="text-slate-700 dark:text-slate-300 overflow-x-auto">
+                          {JSON.stringify(
+                            analysisResult.retrieval_metadata.filters,
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Retrieved Chunks Section */}
+            {analysisResult.retrieved_chunks &&
+              analysisResult.retrieved_chunks.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span>📄</span> Retrieved Chunks (
+                    {analysisResult.retrieved_chunks.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {analysisResult.retrieved_chunks.map((chunk, idx) => (
+                      <div
+                        key={chunk.chunk_id}
+                        className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                {chunk.document_title}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded">
+                                Chunk {chunk.chunk_index}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {chunk.doc_type.toUpperCase()} • ID:{" "}
+                              {chunk.chunk_id.slice(0, 8)}...
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                              Similarity
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-slate-200 dark:bg-slate-600 rounded-full h-1.5">
+                                <div
+                                  className="bg-indigo-600 dark:bg-indigo-400 h-1.5 rounded-full"
+                                  style={{
+                                    width: `${chunk.similarity_score * 100}%`,
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                                {(chunk.similarity_score * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3">
+                          {chunk.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             {/* Overall Assessment */}
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -450,7 +609,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center mt-12 text-sm text-slate-500 dark:text-slate-400">
-          <p>Week 1 MVP - Document Upload & Analysis Interface</p>
+          <p>Week 2 - RAG with Retrieval Traceability</p>
         </div>
       </div>
     </main>
