@@ -8,6 +8,7 @@ import {
   DocumentUploadResponse,
   AnalysisResponse,
   AnalysisRequest,
+  RAGAnalysisResponse,
 } from "./api-client";
 
 export interface UseUploadState {
@@ -105,6 +106,73 @@ export function useDocumentAnalysis(): UseAnalysisState {
 
   return {
     analyze,
+    isAnalyzing,
+    analysisError,
+    analysisResult,
+    resetAnalysis,
+  };
+}
+
+export interface UseRAGAnalysisState {
+  analyzeWithRAG: (
+    query: string,
+    options?: {
+      document_ids?: string[];
+      doc_type?: string;
+      top_k?: number;
+      similarity_threshold?: number;
+      temperature?: number;
+    }
+  ) => Promise<RAGAnalysisResponse | null>;
+  isAnalyzing: boolean;
+  analysisError: string | null;
+  analysisResult: RAGAnalysisResponse | null;
+  resetAnalysis: () => void;
+}
+
+/**
+ * Hook for RAG-based document analysis with retrieval traceability
+ */
+export function useRAGAnalysis(): UseRAGAnalysisState {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] =
+    useState<RAGAnalysisResponse | null>(null);
+
+  const analyzeWithRAG = async (
+    query: string,
+    options?: {
+      document_ids?: string[];
+      doc_type?: string;
+      top_k?: number;
+      similarity_threshold?: number;
+      temperature?: number;
+    }
+  ) => {
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      const result = await apiClient.analyzeWithRAG(query, options);
+      setAnalysisResult(result);
+      return result;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "RAG analysis failed";
+      setAnalysisError(message);
+      return null;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const resetAnalysis = () => {
+    setAnalysisResult(null);
+    setAnalysisError(null);
+  };
+
+  return {
+    analyzeWithRAG,
     isAnalyzing,
     analysisError,
     analysisResult,

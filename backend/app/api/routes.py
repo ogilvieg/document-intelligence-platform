@@ -497,6 +497,19 @@ async def analyze_with_rag(request: RAGAnalysisRequest):
                 }
                 for c in citations
             ],
+            "retrieved_chunks": [
+                {
+                    "chunk_id": str(retrieved_chunk.chunk.id),
+                    "document_id": str(retrieved_chunk.chunk.document_id),
+                    "document_title": retrieved_chunk.document_title or "Unknown",
+                    "doc_type": retrieved_chunk.document_type or "unknown",
+                    "chunk_index": retrieved_chunk.chunk.chunk_index,
+                    "text": retrieved_chunk.chunk.text,
+                    "similarity_score": retrieved_chunk.similarity_score,
+                    "metadata": retrieved_chunk.chunk.metadata
+                }
+                for retrieved_chunk in retrieval_metadata.chunks_retrieved
+            ],
             "retrieval_metadata": {
                 "chunks_retrieved": len(retrieval_metadata.chunks_retrieved),
                 "query_embedding_model": retrieval_metadata.query_embedding_model,
@@ -505,12 +518,14 @@ async def analyze_with_rag(request: RAGAnalysisRequest):
             },
             "llm_metadata": {
                 "model": llm_metadata['model'],
+                "temperature": request.temperature,
                 "latency_ms": llm_metadata['latency_ms'],
                 "prompt_tokens": llm_metadata['prompt_tokens'],
                 "completion_tokens": llm_metadata['completion_tokens'],
                 "total_tokens": llm_metadata['total_tokens'],
                 "cost_usd": cost
             },
+            "cost": cost,
             "created_at": datetime.utcnow().isoformat()
         }
         
