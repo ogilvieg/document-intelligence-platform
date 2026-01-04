@@ -46,6 +46,36 @@ export interface Citation {
   relevance_score: number;
 }
 
+export interface RetrievedChunk {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  doc_type: string;
+  chunk_index: number;
+  text: string;
+  similarity_score: number;
+  metadata?: Record<string, any>;
+}
+
+export interface RetrievalMetadata {
+  chunks_retrieved: number;
+  query_embedding_model: string;
+  timestamp: string;
+  filters: {
+    doc_type?: string | null;
+    document_ids?: string[] | null;
+    metadata_filters?: Record<string, any> | null;
+  };
+}
+
+export interface LLMMetadata {
+  model: string;
+  temperature: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 export interface AnalysisResponse {
   id: string;
   output: AnalysisOutput;
@@ -53,6 +83,17 @@ export interface AnalysisResponse {
   latency_ms: number;
   cost: number | null;
   created_at: string;
+}
+
+export interface RAGAnalysisResponse {
+  analysis_id: string;
+  query: string;
+  output: AnalysisOutput;
+  citations: Citation[];
+  retrieval_metadata: RetrievalMetadata;
+  llm_metadata: LLMMetadata;
+  cost: number;
+  retrieved_chunks?: RetrievedChunk[];
 }
 
 export interface AnalysisRequest {
@@ -121,6 +162,46 @@ export class APIClient {
         .catch(() => ({ detail: "Analysis failed" }));
       throw new Error(
         error.detail || `Analysis failed: ${response.statusText}`
+      );
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Run RAG-based analysis with retrieval traceability
+   */
+  async analyzeWithRAG(
+    query: string,
+    options?: {
+      document_ids?: string[];
+      doc_type?: string;
+      top_k?: number;
+      similarity_threshold?: number;
+      temperature?: number;
+    }
+  ): Promise<RAGAnalysisResponse> {
+    const response = await fetch(`${this.baseURL}/analyze-rag`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        document_ids: options?.document_ids,
+        doc_type: options?.doc_type,
+        top_k: options?.top_k || 5,
+        similarity_threshold: options?.similarity_threshold || 0.5,
+        temperature: options?.temperature || 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "RAG analysis failed" }));
+      throw new Error(
+        error.detail || `RAG analysis failed: ${response.statusText}`
       );
     }
 
