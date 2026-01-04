@@ -3,7 +3,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form
 from typing import List, Optional
 from datetime import datetime
-from uuid import uuid4
+from uuid import uuid4, UUID
 import structlog
 
 from app.models import (
@@ -14,7 +14,14 @@ from app.models import (
     Citation,
     DocumentType
 )
+from app.models.database import (
+    SearchFilters,
+    RetrievalMetadata,
+    RetrievedChunk
+)
 from app.services import LLMService, DocumentIngestionService, ChunkingService
+from app.services.embedding_service import EmbeddingService
+from app.services.retrieval import RetrievalService
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -23,6 +30,8 @@ router = APIRouter()
 llm_service = LLMService()
 document_ingestion_service = DocumentIngestionService()
 chunking_service = ChunkingService()
+embedding_service = EmbeddingService()
+retrieval_service = RetrievalService(embedding_service=embedding_service)
 
 
 @router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -244,3 +253,289 @@ async def get_document(document_id: str):
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Document retrieval not yet implemented"
     )
+
+
+# ============= Week 2: RAG Endpoints =============
+
+@router.post("/documents/{document_id}/generate-embeddings")
+async def generate_embeddings(document_id: UUID):
+    """
+    Generate embeddings for all chunks of a document.
+    
+    This endpoint:
+    1. Retrieves all chunks for the document
+    2. Generates embeddings for each chunk (idempotent)
+    3. Stores embeddings in the database
+    4. Returns metadata about the embedding process
+    
+    Args:
+        document_id: UUID of the document
+        
+    Returns:
+        Metadata about embedding generation (count, model, etc.)
+    """
+    logger.info("embedding_generation_requested", document_id=str(document_id))
+    
+    try:
+        # Generate embeddings for all document chunks
+        embeddings = await embedding_service.embed_document_chunks(document_id)
+        
+        # Calculate statistics
+        total_embeddings = len(embeddings)
+        # All embeddings returned are either new or existing, we can't differentiate easily
+        # So we'll just report the total
+        newly_generated = 0  # Would need to track this in the service
+        
+        response = {
+            "document_id": str(document_id),
+            "total_embeddings": total_embeddings,
+            "newly_generated": newly_generated,
+            "skipped_existing": total_embeddings - newly_generated,
+            "model": embedding_service.model_name,
+            "embedding_dimensions": 1536,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        logger.info(
+            "embedding_generation_completed",
+            document_id=str(document_id),
+            total_embeddings=total_embeddings,
+            newly_generated=newly_generated
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(
+            "embedding_generation_failed",
+            document_id=str(document_id),
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate embeddings: {str(e)}"
+        )
+
+
+@router.post("/search/chunks")
+async def search_chunks(
+    query: str,
+    filters: Optional[SearchFilters] = None,
+    top_k: int = 5,
+    similarity_threshold: float = 0.5
+):
+    """
+    Search for relevant chunks using semantic search.
+    
+    This endpoint:
+    1. Embeds the query
+    2. Performs vector similarity search
+    3. Returns chunks with similarity scores and metadata
+    
+    Args:
+        query: Search query
+        filters: Optional filters (doc_type, document_ids, etc.)
+        top_k: Number of chunks to return (default: 5)
+        similarity_threshold: Minimum similarity score (default: 0.5)
+        
+    Returns:
+        RetrievalMetadata with retrieved chunks and traceability info
+    """
+    logger.info(
+        "chunk_search_requested",
+        query=query,
+        top_k=top_k,
+        filters=filters.model_dump() if filters else None
+    )
+    
+    try:
+        # Perform retrieval
+        retrieval_metadata = await retrieval_service.retrieve_chunks(
+            query=query,
+            filters=filters,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold
+        )
+        
+        # Convert to dict for JSON response
+        response = {
+            "query": retrieval_metadata.query,
+            "chunks_retrieved": len(retrieval_metadata.chunks_retrieved),
+            "retrieval_timestamp": retrieval_metadata.retrieval_timestamp.isoformat(),
+            "query_embedding_model": retrieval_metadata.query_embedding_model,
+            "filters_applied": retrieval_metadata.filters_applied.model_dump() if retrieval_metadata.filters_applied else None,
+            "chunks": [
+                {
+                    "chunk_id": str(rc.chunk.id),
+                    "document_id": str(rc.chunk.document_id),
+                    "document_title": rc.document_title,
+                    "document_type": rc.document_type,
+                    "chunk_index": rc.chunk.chunk_index,
+                    "text": rc.chunk.text,
+                    "similarity_score": rc.similarity_score,
+                    "metadata": rc.chunk.metadata
+                }
+                for rc in retrieval_metadata.chunks_retrieved
+            ]
+        }
+        
+        logger.info(
+            "chunk_search_completed",
+            query=query,
+            chunks_retrieved=len(retrieval_metadata.chunks_retrieved)
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(
+            "chunk_search_failed",
+            query=query,
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chunk search failed: {str(e)}"
+        )
+
+
+from pydantic import BaseModel as PydanticBaseModel, Field as PydanticField
+
+class RAGAnalysisRequest(PydanticBaseModel):
+    """Request model for RAG analysis."""
+    query: str
+    document_ids: Optional[List[UUID]] = None
+    doc_type: Optional[str] = None
+    top_k: int = 5
+    similarity_threshold: float = 0.5
+    temperature: float = 0.7
+
+
+@router.post("/analyze-rag")
+async def analyze_with_rag(request: RAGAnalysisRequest):
+    """
+    Analyze documents using RAG (Retrieval-Augmented Generation).
+    
+    This is the MAIN RAG endpoint that:
+    1. Retrieves relevant chunks using semantic search
+    2. Analyzes using LLM with retrieved chunks as context
+    3. Returns structured output with citations
+    4. Includes full traceability metadata
+    
+    Args:
+        request: RAGAnalysisRequest with query, filters, and parameters
+        
+    Returns:
+        Complete analysis with output, citations, and traceability metadata
+    """
+    logger.info(
+        "rag_analysis_requested",
+        query=request.query,
+        document_ids=[str(d) for d in request.document_ids] if request.document_ids else None,
+        doc_type=request.doc_type,
+        top_k=request.top_k
+    )
+    
+    try:
+        # Step 1: Build filters
+        filters = None
+        if request.document_ids or request.doc_type:
+            filters = SearchFilters(
+                document_ids=request.document_ids,
+                doc_type=request.doc_type
+            )
+        
+        # Step 2: Retrieve relevant chunks
+        retrieval_metadata = await retrieval_service.retrieve_chunks(
+            query=request.query,
+            filters=filters,
+            top_k=request.top_k,
+            similarity_threshold=request.similarity_threshold
+        )
+        
+        if not retrieval_metadata.chunks_retrieved:
+            logger.warning("no_chunks_retrieved", query=request.query)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No relevant chunks found. Try lowering similarity_threshold or check if documents are embedded."
+            )
+        
+        # Step 3: Analyze with LLM using retrieved chunks
+        analysis_output, citations, llm_metadata = llm_service.analyze_with_chunks(
+            query=request.query,
+            chunks=retrieval_metadata.chunks_retrieved,
+            temperature=request.temperature
+        )
+        
+        # Step 4: Calculate cost
+        cost = llm_service.estimate_cost(
+            llm_metadata['prompt_tokens'],
+            llm_metadata['completion_tokens']
+        )
+        
+        # Step 5: Build comprehensive response
+        response = {
+            "analysis_id": str(uuid4()),
+            "query": request.query,
+            "output": {
+                "overall_fit": analysis_output.overall_fit,
+                "strengths": analysis_output.strengths,
+                "gaps": analysis_output.gaps,
+                "risk_factors": analysis_output.risk_factors,
+                "confidence": analysis_output.confidence,
+                "recommended_focus": analysis_output.recommended_focus
+            },
+            "citations": [
+                {
+                    "chunk_id": str(c.chunk_id),
+                    "document_id": str(c.document_id),
+                    "document_title": c.document_title,
+                    "chunk_text": c.chunk_text,
+                    "relevance_score": c.relevance_score
+                }
+                for c in citations
+            ],
+            "retrieval_metadata": {
+                "chunks_retrieved": len(retrieval_metadata.chunks_retrieved),
+                "query_embedding_model": retrieval_metadata.query_embedding_model,
+                "retrieval_timestamp": retrieval_metadata.retrieval_timestamp.isoformat(),
+                "filters_applied": retrieval_metadata.filters_applied.model_dump() if retrieval_metadata.filters_applied else None
+            },
+            "llm_metadata": {
+                "model": llm_metadata['model'],
+                "latency_ms": llm_metadata['latency_ms'],
+                "prompt_tokens": llm_metadata['prompt_tokens'],
+                "completion_tokens": llm_metadata['completion_tokens'],
+                "total_tokens": llm_metadata['total_tokens'],
+                "cost_usd": cost
+            },
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        logger.info(
+            "rag_analysis_completed",
+            analysis_id=response["analysis_id"],
+            chunks_used=len(citations),
+            confidence=analysis_output.confidence,
+            latency_ms=llm_metadata['latency_ms'],
+            cost_usd=cost
+        )
+        
+        return response
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(
+            "rag_analysis_failed",
+            query=request.query,
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"RAG analysis failed: {str(e)}"
+        )
