@@ -129,7 +129,7 @@ export class APIClient {
     if (title) formData.append("title", title);
     if (source) formData.append("source", source);
 
-    const response = await fetch(`${this.baseURL}/documents/upload`, {
+    const response = await fetch(`${this.baseURL}/api/v1/documents/upload`, {
       method: "POST",
       body: formData,
     });
@@ -148,7 +148,7 @@ export class APIClient {
    * Run analysis on uploaded documents
    */
   async analyzeDocuments(request: AnalysisRequest): Promise<AnalysisResponse> {
-    const response = await fetch(`${this.baseURL}/analyze`, {
+    const response = await fetch(`${this.baseURL}/api/v1/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -181,7 +181,7 @@ export class APIClient {
       temperature?: number;
     }
   ): Promise<RAGAnalysisResponse> {
-    const response = await fetch(`${this.baseURL}/analyze-rag`, {
+    const response = await fetch(`${this.baseURL}/api/v1/analyze-rag`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -227,7 +227,7 @@ export class APIClient {
    * List all uploaded documents (not yet implemented in backend)
    */
   async listDocuments(): Promise<any[]> {
-    const response = await fetch(`${this.baseURL}/documents`);
+    const response = await fetch(`${this.baseURL}/api/v1/documents`);
 
     if (!response.ok) {
       throw new Error(`Failed to list documents: ${response.statusText}`);
@@ -240,7 +240,9 @@ export class APIClient {
    * Get a specific document by ID (not yet implemented in backend)
    */
   async getDocument(documentId: string): Promise<any> {
-    const response = await fetch(`${this.baseURL}/documents/${documentId}`);
+    const response = await fetch(
+      `${this.baseURL}/api/v1/documents/${documentId}`
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to get document: ${response.statusText}`);
