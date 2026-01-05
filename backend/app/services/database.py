@@ -3,6 +3,7 @@
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
+import json
 import structlog
 from supabase import create_client, Client
 
@@ -33,7 +34,7 @@ class DatabaseService:
     async def create_document(self, document: DocumentCreate) -> DocumentInDB:
         """Create a new document."""
         try:
-            data = document.model_dump()
+            data = document.model_dump(mode='json')
             response = self.client.table("documents").insert(data).execute()
             
             if not response.data:
@@ -104,8 +105,8 @@ class DatabaseService:
     async def create_chunks(self, chunks: List[ChunkCreate]) -> List[ChunkInDB]:
         """Create multiple chunks (idempotent - skips existing)."""
         try:
-            # Convert to dict for Supabase
-            chunks_data = [chunk.model_dump() for chunk in chunks]
+            # Convert to dict for Supabase with UUIDs as strings
+            chunks_data = [chunk.model_dump(mode='json') for chunk in chunks]
             
             # Upsert to make it idempotent (on conflict do nothing)
             response = self.client.table("chunks")\
@@ -160,7 +161,7 @@ class DatabaseService:
     async def create_embedding(self, embedding: EmbeddingCreate) -> EmbeddingInDB:
         """Create an embedding (idempotent - updates if exists)."""
         try:
-            data = embedding.model_dump()
+            data = embedding.model_dump(mode='json')
             # Convert vector list to string format for pgvector
             data["vector"] = str(data["vector"])
             
@@ -173,6 +174,9 @@ class DatabaseService:
                 raise ValueError("Failed to create embedding")
             
             emb_data = response.data[0]
+            # Parse vector string back to list
+            if isinstance(emb_data.get("vector"), str):
+                emb_data["vector"] = json.loads(emb_data["vector"])
             logger.info("embedding_created", chunk_id=emb_data["chunk_id"])
             return EmbeddingInDB(**emb_data)
         
@@ -196,7 +200,11 @@ class DatabaseService:
             if not response.data:
                 return None
             
-            return EmbeddingInDB(**response.data[0])
+            emb_data = response.data[0]
+            # Parse vector string back to list
+            if isinstance(emb_data.get("vector"), str):
+                emb_data["vector"] = json.loads(emb_data["vector"])
+            return EmbeddingInDB(**emb_data)
         
         except Exception as e:
             logger.error("embedding_fetch_failed", chunk_id=str(chunk_id), error=str(e))

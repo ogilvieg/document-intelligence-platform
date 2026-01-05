@@ -27,7 +27,12 @@ class LLMService:
     
     def __init__(self):
         """Initialize OpenAI client."""
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        # Initialize OpenAI client without proxy parameter
+        # If Render sets HTTP_PROXY/HTTPS_PROXY env vars, httpx will handle it automatically
+        self.client = OpenAI(
+            api_key=settings.openai_api_key,
+            # Don't pass proxy parameter - let httpx handle it from environment
+        )
         self.model = settings.openai_model
         self.max_retries = 3
         

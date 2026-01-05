@@ -4,6 +4,8 @@ project-context.md
 .github/
 docs/implementation-notes/
 
+_bmad/
+
 # OS files
 .DS_Store
 Thumbs.db

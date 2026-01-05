@@ -30,7 +30,7 @@ class RetrievalService:
         self,
         embedding_service: Optional[EmbeddingService] = None,
         default_top_k: int = 5,
-        similarity_threshold: float = 0.5
+        similarity_threshold: float = 0.3  # Lowered from 0.5 for better recall
     ):
         """
         Initialize retrieval service.
