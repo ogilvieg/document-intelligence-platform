@@ -85,9 +85,10 @@ async def upload_document(
         document_id = uuid4()
         
         # Chunk the document
-        chunking_result = chunking_service.chunk_document(
+        chunking_result = await chunking_service.chunk_document(
             document_text=result['text'],
             document_id=document_id,
+            doc_type=doc_type.value,  # Convert enum to string
             document_metadata=result.get('metadata', {})
         )
         
