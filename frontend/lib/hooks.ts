@@ -4,12 +4,12 @@
 
 import { useState } from "react";
 import {
-  apiClient,
   DocumentUploadResponse,
   AnalysisResponse,
   AnalysisRequest,
   RAGAnalysisResponse,
 } from "./api-client";
+import { secureApiClient as apiClient } from "./secure-api-client";
 
 export interface UseUploadState {
   upload: (
