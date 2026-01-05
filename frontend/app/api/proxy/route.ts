@@ -20,6 +20,10 @@ export async function POST(request: NextRequest) {
     // Forward the request to the backend
     const backendUrl = `${BACKEND_URL}${endpoint}`;
 
+    console.log("[Proxy] Forwarding POST request to:", backendUrl);
+    console.log("[Proxy] API_KEY present:", !!API_KEY);
+    console.log("[Proxy] BACKEND_URL:", BACKEND_URL);
+
     // Get the request body
     const contentType = request.headers.get("content-type");
     let body;
@@ -45,17 +49,42 @@ export async function POST(request: NextRequest) {
         : (body as FormData),
     });
 
-    const data = await response.json();
+    console.log("[Proxy] Backend response status:", response.status);
+
+    // Try to parse response as JSON
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error(
+        "[Proxy] Failed to parse backend response as JSON:",
+        parseError
+      );
+      const text = await response.text();
+      console.error("[Proxy] Backend response text:", text);
+      return NextResponse.json(
+        { error: "Backend returned invalid response", details: text },
+        { status: 500 }
+      );
+    }
 
     if (!response.ok) {
+      console.error("[Proxy] Backend error:", data);
       return NextResponse.json(data, { status: response.status });
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Proxy error:", error);
+    console.error("[Proxy] Proxy error:", error);
+    console.error("[Proxy] Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
