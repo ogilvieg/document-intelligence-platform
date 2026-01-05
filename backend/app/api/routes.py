@@ -17,11 +17,13 @@ from app.models import (
 from app.models.database import (
     SearchFilters,
     RetrievalMetadata,
-    RetrievedChunk
+    RetrievedChunk,
+    DocumentCreate
 )
 from app.services import LLMService, DocumentIngestionService, ChunkingService
 from app.services.embedding_service import EmbeddingService
 from app.services.retrieval import RetrievalService
+from app.services.database import get_db_service
 from app.middleware.auth import verify_api_key
 
 logger = structlog.get_logger()
@@ -33,6 +35,7 @@ document_ingestion_service = DocumentIngestionService()
 chunking_service = ChunkingService()
 embedding_service = EmbeddingService()
 retrieval_service = RetrievalService(embedding_service=embedding_service)
+db_service = get_db_service()
 
 
 @router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
@@ -72,6 +75,10 @@ async def upload_document(
             content_type=file.content_type or "application/octet-stream"
         )
         
+        # Sanitize text to remove null bytes and other problematic characters
+        # that PostgreSQL can't handle
+        text_content = result['text'].replace('\x00', '').replace('\u0000', '')
+        
         # Determine document type from content type
         content_type_map = {
             'application/pdf': DocumentType.PDF,
@@ -84,16 +91,51 @@ async def upload_document(
         # Generate document ID
         document_id = uuid4()
         
-        # Chunk the document
+        # Create document in database BEFORE chunking
+        # (chunks have foreign key constraint on document_id)
+        document_create = DocumentCreate(
+            title=title or file.filename or "untitled",
+            doc_type=doc_type.value,
+            source=source or "upload",
+            version="1.0",
+            metadata={
+                'original_filename': file.filename,
+                'text_length': len(text_content),
+                'page_count': result.get('page_count'),
+                'parser': result['metadata'].get('parser'),
+                'content_type': file.content_type
+            }
+        )
+        
+        # Store document in database
+        stored_doc = await db_service.create_document(document_create)
+        document_id = stored_doc.id  # Use the ID from the created document
+        logger.info("document_stored_in_db", document_id=str(document_id))
+        
+        # Chunk the document (will persist to database)
         chunking_result = await chunking_service.chunk_document(
-            document_text=result['text'],
+            document_text=text_content,
             document_id=document_id,
             doc_type=doc_type.value,  # Convert enum to string
             document_metadata=result.get('metadata', {})
         )
         
-        # TODO Week 1: Store document and chunks in Supabase database
-        # For now, we're just parsing and chunking, returning metadata
+        # Automatically generate embeddings for the chunks
+        logger.info("auto_generating_embeddings", document_id=str(document_id))
+        try:
+            embeddings = await embedding_service.embed_document_chunks(document_id)
+            logger.info(
+                "embeddings_generated",
+                document_id=str(document_id),
+                embeddings_count=len(embeddings)
+            )
+        except Exception as e:
+            logger.error(
+                "embedding_generation_failed",
+                document_id=str(document_id),
+                error=str(e)
+            )
+            # Don't fail the upload if embeddings fail - they can be generated later
         
         # Prepare response
         response = DocumentResponse(
@@ -105,7 +147,7 @@ async def upload_document(
             created_at=datetime.utcnow(),
             metadata={
                 'original_filename': file.filename,
-                'text_length': len(result['text']),
+                'text_length': len(text_content),
                 'page_count': result.get('page_count'),
                 'parser': result['metadata'].get('parser'),
                 'content_type': file.content_type,
@@ -325,7 +367,7 @@ async def search_chunks(
     query: str,
     filters: Optional[SearchFilters] = None,
     top_k: int = 5,
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.3  # Lowered from 0.5 for better recall
 ):
     """
     Search for relevant chunks using semantic search.
@@ -411,7 +453,7 @@ class RAGAnalysisRequest(PydanticBaseModel):
     document_ids: Optional[List[UUID]] = None
     doc_type: Optional[str] = None
     top_k: int = 5
-    similarity_threshold: float = 0.5
+    similarity_threshold: float = 0.3  # Lowered from 0.5 for better recall
     temperature: float = 0.7
 
 

@@ -4,6 +4,9 @@ project-context.md
 .github/
 docs/implementation-notes/
 
+# BMAD method files (local workflow only)
+_bmad/
+
 # OS files
 .DS_Store
 Thumbs.db
