@@ -111,9 +111,22 @@ export interface HealthResponse {
  */
 export class APIClient {
   private baseURL: string;
+  private apiKey: string | undefined;
 
-  constructor(baseURL: string = API_BASE_URL) {
+  constructor(baseURL: string = API_BASE_URL, apiKey?: string) {
     this.baseURL = baseURL;
+    this.apiKey = apiKey || process.env.NEXT_PUBLIC_API_KEY;
+  }
+
+  /**
+   * Get headers for authenticated requests
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (this.apiKey) {
+      headers["X-API-Key"] = this.apiKey;
+    }
+    return headers;
   }
 
   /**
@@ -131,6 +144,7 @@ export class APIClient {
 
     const response = await fetch(`${this.baseURL}/api/v1/documents/upload`, {
       method: "POST",
+      headers: this.getAuthHeaders(),
       body: formData,
     });
 
@@ -152,6 +166,7 @@ export class APIClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(request),
     });
@@ -185,6 +200,7 @@ export class APIClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         query,
