@@ -129,13 +129,6 @@ Organizations need to quickly analyze multiple documents to extract insights and
 - **Transparency**: Every answer shows its sources (builds trust)
 - **Scalability**: Handles hundreds of documents instantly
 
-**Technical Skills Demonstrated** 🛠️
-
-- Full-stack development (frontend + backend + database)
-- AI/ML integration (OpenAI, embeddings, vector search)
-- Modern cloud architecture (serverless, containerized)
-- Production-grade code quality (testing, documentation, security)
-- API design (REST, async, proper error handling)
 
 ---
 
@@ -219,46 +212,10 @@ Organizations need to quickly analyze multiple documents to extract insights and
 
 ---
 
-## 📞 Questions?
 
-If you'd like to discuss:
-
-- **Architecture decisions** and trade-offs
-- **Implementation details** of specific features
-- **Scaling considerations** for production
-- **My development process** and methodology
-- **Similar projects** I could build for your team
-
-Feel free to reach out!
-
----
-
-## 🏆 Project Highlights for Resume
-
-**"Document Intelligence Platform with RAG"**
-
-- Architected and built full-stack AI system with retrieval-augmented generation
-- Implemented semantic search using pgvector + OpenAI embeddings (1536-dim)
-- Developed FastAPI backend with 37 comprehensive tests (100% passing)
-- Created Next.js frontend with real-time RAG analysis and retrieval traceability
-- Achieved <100ms semantic search performance on 1000s of document chunks
-- Wrote 500+ lines of production-grade documentation
-- Deployed to cloud platforms (Vercel + Railway) with Docker containerization
-
-**Technologies**: Python, FastAPI, Next.js, TypeScript, React, PostgreSQL, pgvector, OpenAI GPT-4o, Docker, pytest, Supabase, Vercel, Railway
-
----
 
 **Thank you for checking out this project!** 🙏
 
-This demonstrates my ability to:
-
-- ✅ Build production-grade full-stack applications
-- ✅ Integrate modern AI/ML technologies (RAG, embeddings, LLMs)
-- ✅ Write clean, tested, documented code
-- ✅ Deploy to cloud platforms
-- ✅ Design scalable architectures
-- ✅ Ship complete features end-to-end
 
 ---
 
