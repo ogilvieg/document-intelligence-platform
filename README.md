@@ -2,9 +2,10 @@
 
 A production-ready AI system for intelligent document analysis using **Retrieval-Augmented Generation (RAG)** with comprehensive traceability. The platform ingests documents, performs semantic search with pgvector, and delivers structured analysis with full citation tracking and cost transparency.
 
-> **📚 [Project Documentation](DEMO.md)** | **� [Deployment Guide](DEPLOYMENT.md)**
+> **🌐 Live Demo:** [https://document-intelligence-platform.vercel.app](https://document-intelligence-platform.vercel.app)  
+> **📚 Backend API:** [https://document-intelligence-platform.onrender.com](https://document-intelligence-platform.onrender.com)
 >
-> **Live Demo:** Available upon request to prevent API abuse. Contact for access credentials.
+> **Status:** ✅ Fully deployed and operational
 
 ## 🚀 Features
 
@@ -16,19 +17,23 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 - ✅ **Cost Tracking**: Token usage and cost estimation for every operation
 - ✅ **Modern UI**: Next.js frontend with real-time analysis display
 
-### Week 2: RAG with Full Traceability ⭐
+### Week 2: RAG with Full Traceability ✅
 
 - ✅ **Vector Embeddings**: OpenAI text-embedding-3-small with Supabase storage
-- ✅ **Semantic Search**: pgvector similarity search with metadata filtering
+- ✅ **Semantic Search**: pgvector similarity search with metadata filtering (threshold: 0.3)
 - ✅ **Retrieval Pipeline**: Query embedding → vector search → ranked results with logging
 - ✅ **Citation Tracking**: Every analysis includes source chunk references
 - ✅ **Retrieval Traceability**: Full visibility into which chunks influenced the response
 - ✅ **Advanced Filtering**: Filter by document type, specific documents, or metadata
 - ✅ **Frontend Visualization**: Interactive display of retrieved chunks with similarity scores
+- ✅ **Automatic Embeddings**: Documents are automatically embedded after upload
+- ✅ **Production Deployment**: Backend on Render, Frontend on Vercel, Database on Supabase
+- ✅ **Secure API Proxy**: Server-side proxy hides API keys from client
 
 ## 📋 Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Production Deployment](#production-deployment)
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
 - [RAG Pipeline](#rag-pipeline)
@@ -81,6 +86,56 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 5. **Context Building**: Format top-k chunks with source references
 6. **LLM Analysis**: GPT-4o generates response with chunk citations
 7. **Traceability**: Return full metadata (chunks used, scores, tokens, cost)
+
+---
+
+## 🌐 Production Deployment
+
+### Live System
+
+- **Frontend**: https://document-intelligence-platform.vercel.app (Vercel)
+- **Backend API**: https://document-intelligence-platform.onrender.com (Render)
+- **Database**: Supabase PostgreSQL with pgvector extension
+
+### Infrastructure
+
+**Frontend (Vercel):**
+
+- Next.js 14 with TypeScript and Tailwind CSS
+- Server-side API proxy (`/api/proxy`) to hide API keys
+- Automatic deployments from main branch
+- Environment variables: `API_KEY`, `BACKEND_API_URL`
+
+**Backend (Render):**
+
+- FastAPI with Python 3.12
+- Auto-deploy from GitHub on push to main
+- Environment variables: `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, `API_KEY`, `CORS_ORIGINS`
+- Free tier with auto-sleep after inactivity (cold starts ~30s)
+
+**Database (Supabase):**
+
+- PostgreSQL 15 with pgvector 0.5.1
+- Tables: `documents`, `chunks`, `embeddings`
+- HNSW vector index for fast similarity search
+- Foreign key constraints and cascade deletes
+
+### Recent Production Fixes
+
+✅ **Dependency Compatibility**: Upgraded to supabase 2.10.0, httpx 0.27.2  
+✅ **UUID Serialization**: Fixed `model_dump(mode='json')` for PostgreSQL  
+✅ **Null Byte Sanitization**: Strip `\x00` from PDF text before DB insert  
+✅ **Vector Parsing**: Convert DB string vectors back to lists with `json.loads()`  
+✅ **Similarity Threshold**: Lowered from 0.5 to 0.3 for better recall  
+✅ **Auto-Embedding**: Documents automatically embedded after upload  
+✅ **Vector Search Function**: Added `match_chunks()` SQL function for semantic search
+
+### Security Features
+
+- API keys stored server-side only (never exposed to client)
+- Next.js API routes act as secure proxy
+- CORS restricted to frontend domain
+- Supabase service keys protected via environment variables
 
 ---
 
@@ -346,7 +401,7 @@ The RAG (Retrieval-Augmented Generation) pipeline combines semantic search with 
 | `document_ids`         | UUID[] | null     | Limit search to specific docs               |
 | `doc_type`             | string | null     | Filter by type (resume, cover_letter, etc.) |
 | `top_k`                | int    | 5        | Number of chunks to retrieve                |
-| `similarity_threshold` | float  | 0.5      | Minimum cosine similarity (0.0-1.0)         |
+| `similarity_threshold` | float  | 0.3      | Minimum cosine similarity (0.0-1.0)         |
 | `temperature`          | float  | 0.7      | LLM creativity (0.0=focused, 1.0=creative)  |
 
 ---
