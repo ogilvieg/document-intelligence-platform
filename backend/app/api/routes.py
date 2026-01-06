@@ -83,8 +83,10 @@ async def upload_document(
         content_type_map = {
             'application/pdf': DocumentType.PDF,
             'text/markdown': DocumentType.MARKDOWN,
+            'text/x-markdown': DocumentType.MARKDOWN,  # Alternative markdown MIME type
             'text/html': DocumentType.HTML,
-            'text/plain': DocumentType.MARKDOWN
+            'text/plain': DocumentType.MARKDOWN,
+            'application/octet-stream': DocumentType.MARKDOWN  # Generic - will be detected by extension
         }
         doc_type = content_type_map.get(file.content_type, DocumentType.MARKDOWN)
         

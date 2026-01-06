@@ -20,8 +20,20 @@ class DocumentIngestionService:
     SUPPORTED_TYPES = {
         'application/pdf': 'pdf',
         'text/markdown': 'markdown',
+        'text/x-markdown': 'markdown',  # Alternative markdown MIME type
         'text/html': 'html',
-        'text/plain': 'text'
+        'text/plain': 'text',
+        'application/octet-stream': 'auto'  # Generic binary - detect by extension
+    }
+    
+    # File extension to type mapping (for octet-stream fallback)
+    EXTENSION_MAP = {
+        '.pdf': 'pdf',
+        '.md': 'markdown',
+        '.markdown': 'markdown',
+        '.html': 'html',
+        '.htm': 'html',
+        '.txt': 'text'
     }
     
     def __init__(self):
@@ -46,6 +58,9 @@ class DocumentIngestionService:
         # Check content type
         if content_type not in self.SUPPORTED_TYPES:
             supported = ', '.join(self.SUPPORTED_TYPES.keys())
+            logger.warning("unsupported_content_type", 
+                          content_type=content_type,
+                          supported_types=list(self.SUPPORTED_TYPES.keys()))
             return False, f"Unsupported file type. Supported types: {supported}"
         
         return True, None
@@ -298,6 +313,15 @@ class DocumentIngestionService:
         
         # Determine document type
         doc_type = self.SUPPORTED_TYPES.get(content_type)
+        
+        # If content_type is generic octet-stream, detect by file extension
+        if doc_type == 'auto':
+            ext = Path(filename).suffix.lower()
+            doc_type = self.EXTENSION_MAP.get(ext)
+            if not doc_type:
+                supported_exts = ', '.join(self.EXTENSION_MAP.keys())
+                raise ValueError(f"Could not determine file type from extension '{ext}'. Supported extensions: {supported_exts}")
+            logger.info("file_type_detected_by_extension", filename=filename, extension=ext, detected_type=doc_type)
         
         # Route to appropriate parser
         try:

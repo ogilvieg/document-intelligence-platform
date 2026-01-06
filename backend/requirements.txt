@@ -22,6 +22,7 @@ openai==1.58.0
 tiktoken==0.8.0
 tenacity==9.0.0
 httpx>=0.26,<0.28  # Compatible with both openai and supabase 2.10.0
+# Force rebuild: 2026-01-06
 
 # Utilities
 python-dotenv==1.0.0
