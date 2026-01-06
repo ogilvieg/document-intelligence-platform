@@ -86,7 +86,7 @@ export default function Home() {
     await analyzeWithRAG(query, {
       document_ids: [uploadedDocument.id],
       top_k: 5,
-      similarity_threshold: 0.5,
+      similarity_threshold: 0.3, // Lowered from 0.5 for better recall
       temperature: 0.7,
     });
   };
