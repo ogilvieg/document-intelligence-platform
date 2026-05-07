@@ -7,7 +7,7 @@ Organizations need to quickly extract insights from large volumes of unstructure
 This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline: documents are chunked, embedded as vectors, and stored in a database. Queries retrieve the most semantically relevant chunks, which are passed as grounded context to an LLM — so every answer cites exactly where it came from, with full cost and retrieval transparency.
 
 > **🌐 Live Demo:** [https://docsage.phoenix7.dev](https://docsage.phoenix7.dev)  
-> **📚 Backend API:** [https://document-intelligence-platform.onrender.com](https://document-intelligence-platform.onrender.com)
+> **📚 Backend API:** [https://docsage-api.phoenix7.dev](https://docsage-api.phoenix7.dev)
 >
 > **Status:** ✅ Fully deployed and operational
 
@@ -108,7 +108,7 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 ### Live System
 
 - **Frontend**: https://docsage.phoenix7.dev (Vercel)
-- **Backend API**: https://document-intelligence-platform.onrender.com (Render)
+- **Backend API**: https://docsage-api.phoenix7.dev (Render)
 - **Database**: Supabase PostgreSQL with pgvector extension
 
 ### Infrastructure
