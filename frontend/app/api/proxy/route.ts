@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL =
-  process.env.BACKEND_API_URL || "http://localhost:8000/api/v1";
+  (process.env.BACKEND_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
 const API_KEY = process.env.API_KEY; // NOT prefixed with NEXT_PUBLIC_
 
 export async function POST(request: NextRequest) {
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Forward the request to the backend
-    const backendUrl = `${BACKEND_URL}${endpoint}`;
+    // Forward the request to the backend (ensure single slash between base and endpoint)
+    const backendUrl = `${BACKEND_URL}/${endpoint.replace(/^\//, "")}`;
 
     console.log("[Proxy] Forwarding POST request to:", backendUrl);
     console.log("[Proxy] API_KEY present:", !!API_KEY);
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const backendUrl = `${BACKEND_URL}${endpoint}`;
+    const backendUrl = `${BACKEND_URL}/${endpoint.replace(/^\//, "")}`;
 
     const response = await fetch(backendUrl, {
       method: "GET",
