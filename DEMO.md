@@ -1,4 +1,4 @@
-# 🚀 Document Intelligence Platform - Live Demo
+# 🚀 DocSage - Live Demo
 
 > **A production-grade AI system demonstrating Retrieval-Augmented Generation (RAG) with full traceability**
 
@@ -6,8 +6,8 @@
 
 ## 📍 Live Demo
 
-**Frontend**: [https://your-app.vercel.app](https://your-app.vercel.app) _(Update after deployment)_  
-**API Documentation**: [https://your-backend.railway.app/docs](https://your-backend.railway.app/docs) _(Update after deployment)_  
+**Frontend**: [https://docsage.phoenix7.dev](https://docsage.phoenix7.dev)  
+**API Documentation**: [https://docsage-api.phoenix7.dev/docs](https://docsage-api.phoenix7.dev/docs)  
 **GitHub Repository**: [https://github.com/ogilvieg/document-intelligence-platform](https://github.com/ogilvieg/document-intelligence-platform)
 
 ---
@@ -16,7 +16,7 @@
 
 This project showcases **production-ready full-stack AI development** with:
 
-### Week 1: MVP Foundation ✅
+### Document Processing Pipeline
 
 - **Document Processing**: Multi-format ingestion (PDF, Markdown, HTML, text)
 - **Intelligent Chunking**: Semantic text splitting with configurable parameters
@@ -24,7 +24,7 @@ This project showcases **production-ready full-stack AI development** with:
 - **Cost Tracking**: Complete token usage and cost transparency
 - **Modern Stack**: FastAPI + Next.js + TypeScript
 
-### Week 2: RAG with Full Traceability ⭐ _(Current Demo Focus)_
+### RAG with Semantic Search & Full Traceability ⭐ _(Demo Focus)_
 
 - **Vector Embeddings**: OpenAI text-embedding-3-small with 1536 dimensions
 - **Semantic Search**: pgvector + Supabase for sub-second similarity search
@@ -129,7 +129,6 @@ Organizations need to quickly analyze multiple documents to extract insights and
 - **Transparency**: Every answer shows its sources (builds trust)
 - **Scalability**: Handles hundreds of documents instantly
 
-
 ---
 
 ## 📊 Technical Stack
@@ -141,7 +140,7 @@ Organizations need to quickly analyze multiple documents to extract insights and
 | **Database**   | Supabase (PostgreSQL) + pgvector      | Cloud database with vector search     |
 | **AI/ML**      | OpenAI GPT-4o, text-embedding-3-small | Language model and embeddings         |
 | **Testing**    | pytest, FastAPI TestClient            | Comprehensive automated testing       |
-| **Deployment** | Vercel (frontend), Railway (backend)  | Cloud-native deployment               |
+| **Deployment** | Vercel (frontend), Render (backend)   | Cloud-native deployment               |
 | **DevOps**     | Docker, docker-compose                | Containerization for consistency      |
 
 ---
@@ -170,36 +169,28 @@ Organizations need to quickly analyze multiple documents to extract insights and
 
 ---
 
-## 🎓 What I Learned Building This
+## 🔧 Engineering Decisions
 
-### Technical Challenges Solved
+### Production Challenges Solved
 
-1. **Vector Search Optimization**: Implemented efficient cosine similarity search with pgvector
-2. **RAG Pipeline Design**: Built complete retrieval-augmented generation with traceability
-3. **Citation Tracking**: Developed system to track which chunks influenced each AI response
-4. **Async Performance**: Leveraged FastAPI's async capabilities for concurrent operations
-5. **Type Safety**: Maintained end-to-end type safety (Python Pydantic → TypeScript)
+1. **PDF Null Byte Handling**: Sanitized `\x00` bytes extracted by PyMuPDF before PostgreSQL insert — these aren't caught in testing with clean PDFs
+2. **Vector Type Mismatch**: pgvector returns vectors as strings in query results; added explicit parsing before cosine distance calculation
+3. **Retrieval Threshold Tuning**: Lowered similarity threshold from 0.5 → 0.3 after diagnosing zero-result queries on short documents
+4. **UUID Serialization**: Switched to `model_dump(mode='json')` after Pydantic's `.dict()` preserved non-serializable UUID types that PostgreSQL rejected
+5. **Async Performance**: FastAPI's async/await for concurrent embedding generation and DB writes
 
 ### Architecture Decisions
 
-- **Why FastAPI?** Async/await support, automatic OpenAPI docs, Pydantic integration
-- **Why Supabase?** PostgreSQL + pgvector + cloud hosting in one platform
-- **Why Next.js?** Server-side rendering, great DX, Vercel deployment integration
-- **Why pgvector?** Native PostgreSQL extension, proven at scale, simpler than separate vector DB
-
-### Best Practices Demonstrated
-
-- **Clean Architecture**: Separation of concerns (services, models, API routes)
-- **DRY Principles**: Reusable hooks, service abstractions, utility functions
-- **Error Handling**: Comprehensive error messages and proper HTTP status codes
-- **Documentation**: README, API docs, deployment guide, code comments
-- **Testing Strategy**: Unit tests for logic, integration tests for workflows
+- **pgvector over Pinecone**: One platform for relational + vector data — no separate service to operate at this scale
+- **RAG over fine-tuning**: Documents are dynamic and every answer must cite its source — fine-tuning can't do either
+- **text-embedding-3-small**: 5× cheaper than the large variant with no measurable quality difference on this corpus
+- **FastAPI**: Native async, auto-generated OpenAPI docs, Pydantic models shared across DB and API layers
 
 ---
 
-## 🔮 Future Enhancements (Week 3+)
+## 🔮 Planned Enhancements
 
-### Planned Features
+### Next Phase
 
 - **Batch Evaluation Framework**: Systematic testing of retrieval quality
 - **Retrieval Metrics**: Precision@k, recall, MRR for search quality
@@ -212,12 +203,9 @@ Organizations need to quickly analyze multiple documents to extract insights and
 
 ---
 
-
-
 **Thank you for checking out this project!** 🙏
-
 
 ---
 
-_Last Updated: January 4, 2026_  
+_Last Updated: May 7, 2026_  
 _Project Status: ✅ Production-Ready Demo_
