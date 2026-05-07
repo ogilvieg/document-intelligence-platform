@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL =
-  (process.env.BACKEND_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
+const BACKEND_URL = (
+  process.env.BACKEND_API_URL || "http://localhost:8000/api/v1"
+).replace(/\/$/, "");
 const API_KEY = process.env.API_KEY; // NOT prefixed with NEXT_PUBLIC_
 
 export async function POST(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (!endpoint) {
       return NextResponse.json(
         { error: "Missing endpoint parameter" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,13 +59,13 @@ export async function POST(request: NextRequest) {
     } catch (parseError) {
       console.error(
         "[Proxy] Failed to parse backend response as JSON:",
-        parseError
+        parseError,
       );
       const text = await response.text();
       console.error("[Proxy] Backend response text:", text);
       return NextResponse.json(
         { error: "Backend returned invalid response", details: text },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     if (!endpoint) {
       return NextResponse.json(
         { error: "Missing endpoint parameter" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
     console.error("Proxy error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
