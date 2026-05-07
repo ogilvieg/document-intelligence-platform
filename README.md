@@ -1,15 +1,19 @@
-# Document Intelligence Platform
+# DocSage
 
-A production-ready AI system for intelligent document analysis using **Retrieval-Augmented Generation (RAG)** with comprehensive traceability. The platform ingests documents, performs semantic search with pgvector, and delivers structured analysis with full citation tracking and cost transparency.
+**Intelligent document analysis powered by RAG — every answer cites exactly where it came from.**
 
-> **🌐 Live Demo:** [https://document-intelligence-platform.vercel.app](https://document-intelligence-platform.vercel.app)  
+Organizations need to quickly extract insights from large volumes of unstructured documents. Manual review is slow, keyword search misses semantically related content, and black-box AI answers can't be trusted without knowing their sources.
+
+This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline: documents are chunked, embedded as vectors, and stored in a database. Queries retrieve the most semantically relevant chunks, which are passed as grounded context to an LLM — so every answer cites exactly where it came from, with full cost and retrieval transparency.
+
+> **🌐 Live Demo:** [https://docsage.phoenix7.dev](https://docsage.phoenix7.dev)  
 > **📚 Backend API:** [https://document-intelligence-platform.onrender.com](https://document-intelligence-platform.onrender.com)
 >
 > **Status:** ✅ Fully deployed and operational
 
 ## 🚀 Features
 
-### Week 1: MVP Foundation
+### Document Processing Pipeline
 
 - ✅ **Document Upload & Processing**: PDF, Markdown, HTML, and text file ingestion
 - ✅ **Intelligent Chunking**: Semantic document splitting with configurable parameters
@@ -17,7 +21,7 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 - ✅ **Cost Tracking**: Token usage and cost estimation for every operation
 - ✅ **Modern UI**: Next.js frontend with real-time analysis display
 
-### Week 2: RAG with Full Traceability ✅
+### RAG with Semantic Search & Full Traceability
 
 - ✅ **Vector Embeddings**: OpenAI text-embedding-3-small with Supabase storage
 - ✅ **Semantic Search**: pgvector similarity search with metadata filtering (threshold: 0.3)
@@ -82,10 +86,20 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 1. **Query Embedding**: User query → OpenAI embeddings (1536 dimensions)
 2. **Vector Search**: Semantic similarity search via pgvector with cosine distance
 3. **Filtering**: Apply document_ids, doc_type, or custom metadata filters
-4. **Ranking**: Sort by similarity score, apply threshold (default: 0.5)
+4. **Ranking**: Sort by similarity score, apply threshold (default: 0.3)
 5. **Context Building**: Format top-k chunks with source references
 6. **LLM Analysis**: GPT-4o generates response with chunk citations
 7. **Traceability**: Return full metadata (chunks used, scores, tokens, cost)
+
+### Why This Stack
+
+| Component              | Chosen                 | Alternative Considered | Key Reason                                                                          |
+| ---------------------- | ---------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
+| **Vector DB**          | pgvector + Supabase    | Pinecone, Weaviate     | One platform for relational + vector data — no separate service to operate          |
+| **API Framework**      | FastAPI                | Flask, Django          | Native async, auto-generated OpenAPI docs, Pydantic models shared with DB layer     |
+| **Embedding Model**    | text-embedding-3-small | text-embedding-3-large | 5× cheaper; no measurable retrieval quality difference at this document scale       |
+| **LLM**                | GPT-4o                 | GPT-4o-mini, Claude    | Best structured JSON output quality; cost acceptable at low query volume            |
+| **Retrieval Approach** | RAG                    | Fine-tuning            | Documents are dynamic and traceability is required — fine-tuning can't cite sources |
 
 ---
 
@@ -93,7 +107,7 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 
 ### Live System
 
-- **Frontend**: https://document-intelligence-platform.vercel.app (Vercel)
+- **Frontend**: https://docsage.phoenix7.dev (Vercel)
 - **Backend API**: https://document-intelligence-platform.onrender.com (Render)
 - **Database**: Supabase PostgreSQL with pgvector extension
 
@@ -120,15 +134,45 @@ A production-ready AI system for intelligent document analysis using **Retrieval
 - HNSW vector index for fast similarity search
 - Foreign key constraints and cascade deletes
 
-### Recent Production Fixes
+### Production Challenges & Debugging
 
-✅ **Dependency Compatibility**: Upgraded to supabase 2.10.0, httpx 0.27.2  
-✅ **UUID Serialization**: Fixed `model_dump(mode='json')` for PostgreSQL  
-✅ **Null Byte Sanitization**: Strip `\x00` from PDF text before DB insert  
-✅ **Vector Parsing**: Convert DB string vectors back to lists with `json.loads()`  
-✅ **Similarity Threshold**: Lowered from 0.5 to 0.3 for better recall  
-✅ **Auto-Embedding**: Documents automatically embedded after upload  
-✅ **Vector Search Function**: Added `match_chunks()` SQL function for semantic search
+Each of these was found in live deployment — not caught by tests. The pattern: symptom in prod → trace to root cause → targeted fix.
+
+**UUID Serialization Failure**
+
+- _Symptom_: Embedding generation endpoint returned 500 errors on every insert
+- _Root cause_: Pydantic's `.dict()` preserved Python `UUID` objects; PostgreSQL rejected them as non-JSON-serializable types
+- _Fix_: Switched to `model_dump(mode='json')` to coerce all values to JSON-serializable primitives before DB write
+
+**Null Bytes in PDF Text**
+
+- _Symptom_: PDF uploads crashed with PostgreSQL `invalid byte sequence` error
+- _Root cause_: PyMuPDF extracts `\x00` null bytes from some PDFs; PostgreSQL text columns reject them entirely
+- _Fix_: Added `.replace('\x00', '')` sanitization in the chunking pipeline before any DB write
+
+**Vectors Stored as Strings**
+
+- _Symptom_: Similarity search returned errors or wrong scores on documents that had been re-queried
+- _Root cause_: pgvector returns vectors as comma-delimited strings in query results; code passed them directly into cosine distance as if they were Python lists
+- _Fix_: Added `json.loads()` conversion step to parse DB vectors back to float lists before similarity calculation
+
+**Similarity Threshold Too Strict (0.5 → 0.3)**
+
+- _Symptom_: Queries on short documents (1–2 pages) consistently returned zero results
+- _Root cause_: Default threshold of 0.5 was calibrated for longer documents with more semantic overlap; short docs produced lower similarity scores across the board
+- _Fix_: Lowered to 0.3 after manually testing recall on real uploaded documents of different lengths
+
+**Dependency Version Conflict on Deployment**
+
+- _Symptom_: Render deployment failed with `ImportError` on startup — worked fine locally
+- _Root cause_: `supabase 2.x` required `httpx >=0.27`; local env had been upgraded but `requirements.txt` was pinned to `0.24`
+- _Fix_: Upgraded to `supabase==2.10.0` and `httpx==0.27.2`, both explicitly pinned in `requirements.txt`
+
+**Manual Embedding Step (UX Failure)**
+
+- _Symptom_: Users uploaded documents and immediately queried — got zero results
+- _Root cause_: Embedding generation was a separate manual step; no feedback to indicate it hadn't run
+- _Fix_: Auto-trigger embedding generation immediately after successful upload; added `match_chunks()` SQL function to support the vector search
 
 ### Security Features
 
@@ -359,23 +403,19 @@ Content-Type: application/json
 The RAG (Retrieval-Augmented Generation) pipeline combines semantic search with LLM reasoning for accurate, source-grounded analysis:
 
 1. **Query Processing**
-
    - User submits natural language query
    - Query is embedded using OpenAI's text-embedding-3-small (1536 dims)
 
 2. **Semantic Retrieval**
-
    - Vector similarity search via pgvector (cosine distance)
    - Optional filters: document IDs, doc types, metadata
    - Returns top-k most relevant chunks above similarity threshold
 
 3. **Context Construction**
-
    - Retrieved chunks formatted with source metadata
    - Example: `[CHUNK 1] [Doc: resume.pdf, Chunk 3] Python: 5 years...`
 
 4. **LLM Analysis**
-
    - GPT-4o receives query + formatted context
    - Generates structured response citing source chunks
    - Configured temperature (default: 0.7) for creativity vs. precision
@@ -392,6 +432,37 @@ The RAG (Retrieval-Augmented Generation) pipeline combines semantic search with 
 - **Cost Transparency**: Embedding + LLM costs per request
 - **Flexible Filtering**: Narrow search by document or type
 - **Configurable Parameters**: Control top_k, threshold, temperature
+
+---
+
+## ⚖️ Design Decisions & Tradeoffs
+
+The decisions below are the ones most likely to surface in a technical discussion. Each includes the tradeoff and the reasoning behind the choice made.
+
+### Chunk Size (~500 tokens)
+
+- **Tradeoff**: Larger chunks give the LLM more context per retrieval but reduce precision — a 2000-token chunk might match a query on a single sentence while flooding the context with irrelevant text. Smaller chunks improve precision but risk splitting semantically complete ideas across boundaries.
+- **Decision**: ~500 tokens as a starting point. Short enough for targeted retrieval, large enough to preserve sentence-level coherence. The right value is corpus-dependent and should be evaluated against real queries.
+
+### Similarity Threshold (0.3)
+
+- **Tradeoff**: Higher threshold = higher precision, lower recall. A threshold of 0.5 filtered out relevant chunks on short documents; 0.1 returns noisy, semantically distant results.
+- **Decision**: 0.3 — empirically tuned by running queries against real uploaded documents and checking whether returned chunks were actually relevant. This is a parameter that should be re-evaluated as document volume grows.
+
+### pgvector vs. Dedicated Vector DB (Pinecone, Weaviate)
+
+- **Tradeoff**: Pinecone offers managed vector search with better performance at scale and richer filtering, but adds another service to operate, another SDK, another cost center, and another failure point.
+- **Decision**: pgvector keeps everything in one Supabase instance. At this scale (thousands of chunks, not billions), the performance difference is negligible. Operational simplicity wins. If this needed to scale to millions of chunks with sub-10ms latency SLAs, Pinecone would be the right call.
+
+### RAG vs. Fine-Tuning
+
+- **Tradeoff**: Fine-tuning bakes knowledge into model weights — fast inference, no retrieval step, no context window pressure. But it requires retraining whenever documents change, is expensive to iterate on, and cannot cite sources.
+- **Decision**: RAG is the right choice when documents are dynamic and answer traceability is a requirement. Fine-tuning would be better for stable, high-volume Q&A on a fixed, well-curated corpus.
+
+### text-embedding-3-small vs. text-embedding-3-large
+
+- **Tradeoff**: The large model produces better embeddings but costs 5× more per token. At low query volume, the absolute cost difference is small — but it compounds quickly with large document ingestion.
+- **Decision**: Small model. No measurable retrieval quality difference was observed on this dataset. Revisit if the corpus scales significantly or if retrieval quality degrades on niche technical content.
 
 ### Configuration Options
 
@@ -569,14 +640,14 @@ The frontend provides rich visualization of RAG operations:
 
 ## 🚦 Roadmap
 
-### ✅ Week 1: MVP (Complete)
+### ✅ Phase 1: Document Processing (Complete)
 
 - Document upload & processing
 - Chunking with configurable parameters
 - LLM analysis with structured outputs
 - Basic frontend
 
-### ✅ Week 2: RAG + Traceability (Complete)
+### ✅ Phase 2: RAG + Traceability (Complete)
 
 - Vector embeddings with Supabase
 - Semantic search with pgvector
@@ -584,49 +655,23 @@ The frontend provides rich visualization of RAG operations:
 - Citation tracking
 - Frontend traceability visualization
 
-### 📋 Week 3: Evaluation & Advanced Features (Planned)
+### 📋 Phase 3: Evaluation & Advanced Features (Planned)
 
 - Batch evaluation framework
-- Retrieval quality metrics
+- Retrieval quality metrics (Precision@k, MRR)
 - LLM response evaluation
-- A/B testing infrastructure
+- A/B testing for retrieval parameters
 - Performance optimization
 
-### 📋 Week 4: Production Readiness (Planned)
+### 📋 Phase 4: Production Hardening (Planned)
 
-- Authentication & authorization
-- Rate limiting & caching
+- Authentication & authorization (JWT)
+- Rate limiting & caching (Redis)
 - Monitoring & alerting
-- Deployment configuration
 - API documentation (OpenAPI/Swagger)
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! This project follows a test-driven development approach:
-
-1. Write tests for new features
-2. Implement functionality
-3. Ensure all tests pass (including existing ones)
-4. Update documentation
-5. Submit pull request
 
 ---
 
 ## 📄 License
 
 MIT License - See LICENSE file for details
-
----
-
-## 🙏 Acknowledgments
-
-- **OpenAI**: GPT-4o and text-embedding-3-small models
-- **Supabase**: PostgreSQL + pgvector hosting
-- **FastAPI**: High-performance Python API framework
-- **Next.js**: React framework for production-ready frontends
-
----
-
-**Built with ❤️ for production-grade document intelligence**
