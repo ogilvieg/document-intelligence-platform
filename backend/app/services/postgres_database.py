@@ -43,6 +43,8 @@ class PostgresDatabaseService:
     async def connect(self) -> None:
         """Create the asyncpg connection pool and register pgvector codec."""
         async def _init_conn(conn: asyncpg.Connection) -> None:
+            # Ensure pgvector operators (<=>, <#>, <+>) are resolvable
+            await conn.execute("SET search_path = docsage, public")
             await register_vector(conn)
 
         # asyncpg doesn't honour sslmode= in the URL — strip it out and
@@ -341,8 +343,8 @@ class PostgresDatabaseService:
                 doc_type = filters.doc_type
 
             rows = await self.pool.fetch(
-                "SELECT * FROM match_chunks($1, $2, $3, $4, $5)",
-                query_embedding,        # vector — registered codec converts list[float]
+                "SELECT * FROM match_chunks($1::vector, $2, $3, $4, $5)",
+                query_embedding,        # list[float] — pgvector codec + explicit cast
                 similarity_threshold,
                 top_k,
                 doc_ids,
