@@ -7,6 +7,7 @@ Selected automatically when DATABASE_URL is set in the environment.
 
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 import json
 import asyncpg
 from pgvector.asyncpg import register_vector
@@ -364,6 +365,7 @@ class PostgresDatabaseService:
                     text=r["text"],
                     token_count=None,
                     metadata={},
+                    created_at=datetime.utcnow(),  # not returned by match_chunks — use placeholder
                 )
                 retrieved.append(RetrievedChunk(
                     chunk=chunk,
