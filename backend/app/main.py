@@ -52,13 +52,20 @@ async def startup_event():
         supabase_url_set=bool(settings.supabase_url),
     )
 
-    # If using AWS RDS, open the asyncpg connection pool on startup
+    # If using AWS RDS, attempt to open the asyncpg connection pool.
+    # Run in background so a slow/failing DB doesn't block port binding.
     if settings.rds_database_url:
+        import asyncio
         from app.services.database import get_db_service
         db = get_db_service()
         if hasattr(db, "connect"):
-            await db.connect()
-            logger.info("postgres_pool_ready")
+            async def _connect_pool():
+                try:
+                    await db.connect()
+                    logger.info("postgres_pool_ready")
+                except Exception as e:
+                    logger.error("postgres_pool_failed", error=str(e))
+            asyncio.create_task(_connect_pool())
     else:
         logger.warning("database_url_not_set", fallback="supabase")
 
