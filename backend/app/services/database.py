@@ -292,9 +292,9 @@ def get_db_service():
     """
     global _db_service
     if _db_service is None:
-        if settings.database_url:
+        if settings.rds_database_url:
             from app.services.postgres_database import PostgresDatabaseService
-            _db_service = PostgresDatabaseService(settings.database_url)
+            _db_service = PostgresDatabaseService(settings.rds_database_url)
             logger.info("db_backend_selected", backend="postgres_rds")
         else:
             _db_service = DatabaseService()

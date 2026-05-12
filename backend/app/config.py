@@ -14,9 +14,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
     
     # Database Configuration
-    # Set DATABASE_URL to use AWS RDS PostgreSQL directly (preferred).
+    # Set RDS_DATABASE_URL to use AWS RDS PostgreSQL directly (preferred).
+    # Named RDS_DATABASE_URL (not DATABASE_URL) to avoid collision with
+    # Render's auto-injected DATABASE_URL for linked Postgres services.
     # If not set, falls back to Supabase (backwards compatible).
-    database_url: Optional[str] = None
+    rds_database_url: Optional[str] = None
 
     # Supabase Configuration (legacy — only required when DATABASE_URL is not set)
     supabase_url: Optional[str] = None

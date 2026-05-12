@@ -41,26 +41,33 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Application startup event."""
+    # Log which DB backend is active — helps diagnose env var issues on Render
+    db_url_hint = (settings.rds_database_url[:30] + "...") if settings.rds_database_url else None
     logger.info(
         "application_starting",
         environment=settings.environment,
-        debug=settings.debug
+        debug=settings.debug,
+        database_url_set=bool(settings.rds_database_url),
+        database_url_preview=db_url_hint,
+        supabase_url_set=bool(settings.supabase_url),
     )
 
     # If using AWS RDS, open the asyncpg connection pool on startup
-    if settings.database_url:
+    if settings.rds_database_url:
         from app.services.database import get_db_service
         db = get_db_service()
         if hasattr(db, "connect"):
             await db.connect()
             logger.info("postgres_pool_ready")
+    else:
+        logger.warning("database_url_not_set", fallback="supabase")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event."""
     # Gracefully close the asyncpg pool if it was opened
-    if settings.database_url:
+    if settings.rds_database_url:
         from app.services.database import get_db_service
         db = get_db_service()
         if hasattr(db, "disconnect"):
