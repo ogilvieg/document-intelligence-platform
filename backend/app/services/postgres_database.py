@@ -343,8 +343,8 @@ class PostgresDatabaseService:
                 doc_type = filters.doc_type
 
             rows = await self.pool.fetch(
-                "SELECT * FROM match_chunks($1::vector, $2, $3, $4, $5)",
-                query_embedding,        # list[float] — pgvector codec + explicit cast
+                "SELECT * FROM match_chunks($1::public.vector, $2, $3, $4, $5)",
+                query_embedding,
                 similarity_threshold,
                 top_k,
                 doc_ids,
