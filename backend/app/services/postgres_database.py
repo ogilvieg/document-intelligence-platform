@@ -45,10 +45,29 @@ class PostgresDatabaseService:
         async def _init_conn(conn: asyncpg.Connection) -> None:
             await register_vector(conn)
 
+        # asyncpg doesn't honour sslmode= in the URL — strip it out and
+        # pass ssl=True explicitly so RDS connections work on Render.
+        import ssl as _ssl
+        from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+
+        parsed = urlparse(self._database_url)
+        query_params = parse_qs(parsed.query, keep_blank_values=True)
+        sslmode = query_params.pop("sslmode", ["disable"])[0]
+        clean_url = urlunparse(parsed._replace(query=urlencode(
+            {k: v[0] for k, v in query_params.items()}
+        )))
+
+        ssl_ctx: _ssl.SSLContext | bool = False
+        if sslmode in ("require", "verify-ca", "verify-full"):
+            ssl_ctx = _ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = _ssl.CERT_NONE  # RDS CA not in default bundle
+
         self._pool = await asyncpg.create_pool(
-            self._database_url,
+            clean_url,
             min_size=2,
             max_size=10,
+            ssl=ssl_ctx or None,
             init=_init_conn,
         )
         logger.info("postgres_pool_created", database_url=self._database_url.split("@")[-1])
