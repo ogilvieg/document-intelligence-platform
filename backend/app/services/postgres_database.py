@@ -81,8 +81,17 @@ class PostgresDatabaseService:
     @property
     def pool(self) -> asyncpg.Pool:
         if self._pool is None:
-            raise RuntimeError("PostgresDatabaseService.connect() has not been called yet.")
+            raise RuntimeError("PostgresDatabaseService not connected yet — pool is still initializing.")
         return self._pool
+
+    async def wait_until_ready(self, timeout: float = 30.0) -> None:
+        """Wait until the connection pool is ready (useful after background connect)."""
+        import asyncio
+        deadline = asyncio.get_event_loop().time() + timeout
+        while self._pool is None:
+            if asyncio.get_event_loop().time() > deadline:
+                raise RuntimeError("Timed out waiting for postgres pool to be ready.")
+            await asyncio.sleep(0.1)
 
     # ------------------------------------------------------------------
     # Helpers

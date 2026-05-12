@@ -126,6 +126,10 @@ async def upload_document(
         # Automatically generate embeddings for the chunks
         logger.info("auto_generating_embeddings", document_id=str(document_id))
         try:
+            # Wait for pool if still connecting (background init race condition)
+            db = get_db_service()
+            if hasattr(db, "wait_until_ready"):
+                await db.wait_until_ready()
             embeddings = await embedding_service.embed_document_chunks(document_id)
             logger.info(
                 "embeddings_generated",
