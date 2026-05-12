@@ -1,6 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,10 +13,15 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     
-    # Supabase Configuration
-    supabase_url: str
-    supabase_key: str
-    supabase_service_key: str
+    # Database Configuration
+    # Set DATABASE_URL to use AWS RDS PostgreSQL directly (preferred).
+    # If not set, falls back to Supabase (backwards compatible).
+    database_url: Optional[str] = None
+
+    # Supabase Configuration (legacy — only required when DATABASE_URL is not set)
+    supabase_url: Optional[str] = None
+    supabase_key: Optional[str] = None
+    supabase_service_key: Optional[str] = None
     
     # OpenAI Configuration
     openai_api_key: str

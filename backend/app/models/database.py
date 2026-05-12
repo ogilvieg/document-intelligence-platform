@@ -20,7 +20,9 @@ class DocumentBase(BaseModel):
 
 class DocumentCreate(DocumentBase):
     """Schema for creating a new document."""
-    pass
+    filename: Optional[str] = None
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
 
 
 class DocumentInDB(DocumentBase):

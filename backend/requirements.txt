@@ -14,8 +14,8 @@ markdown==3.5.2
 
 # Database & Vector
 supabase==2.10.0  # Updated for httpx 0.25.2 compatibility
-# Note: Supabase client handles database connection, no need for psycopg2
-# pgvector operations will be handled through Supabase client
+asyncpg==0.30.0   # Direct PostgreSQL connection for AWS RDS
+pgvector==0.3.6   # pgvector Python client (asyncpg integration)
 
 # AI/ML
 openai==1.58.0

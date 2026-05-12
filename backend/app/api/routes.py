@@ -35,7 +35,8 @@ document_ingestion_service = DocumentIngestionService()
 chunking_service = ChunkingService()
 embedding_service = EmbeddingService()
 retrieval_service = RetrievalService(embedding_service=embedding_service)
-db_service = get_db_service()
+# db_service is resolved lazily via get_db_service() to avoid instantiating
+# the Supabase client (or asyncpg pool) at import time before env vars load.
 
 
 @router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
@@ -110,7 +111,7 @@ async def upload_document(
         )
         
         # Store document in database
-        stored_doc = await db_service.create_document(document_create)
+        stored_doc = await get_db_service().create_document(document_create)
         document_id = stored_doc.id  # Use the ID from the created document
         logger.info("document_stored_in_db", document_id=str(document_id))
         

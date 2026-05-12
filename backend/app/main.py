@@ -47,10 +47,24 @@ async def startup_event():
         debug=settings.debug
     )
 
+    # If using AWS RDS, open the asyncpg connection pool on startup
+    if settings.database_url:
+        from app.services.database import get_db_service
+        db = get_db_service()
+        if hasattr(db, "connect"):
+            await db.connect()
+            logger.info("postgres_pool_ready")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event."""
+    # Gracefully close the asyncpg pool if it was opened
+    if settings.database_url:
+        from app.services.database import get_db_service
+        db = get_db_service()
+        if hasattr(db, "disconnect"):
+            await db.disconnect()
     logger.info("application_shutting_down")
 
 

@@ -280,14 +280,25 @@ class DatabaseService:
 
 
 # Global database service instance (lazy initialization)
-_db_service: Optional[DatabaseService] = None
+_db_service = None
 
 
-def get_db_service() -> DatabaseService:
-    """Get or create the global database service instance."""
+def get_db_service():
+    """
+    Return the appropriate database service based on available config.
+
+    - DATABASE_URL set  →  PostgresDatabaseService (AWS RDS via asyncpg)
+    - DATABASE_URL unset →  DatabaseService (Supabase — legacy, backwards-compatible)
+    """
     global _db_service
     if _db_service is None:
-        _db_service = DatabaseService()
+        if settings.database_url:
+            from app.services.postgres_database import PostgresDatabaseService
+            _db_service = PostgresDatabaseService(settings.database_url)
+            logger.info("db_backend_selected", backend="postgres_rds")
+        else:
+            _db_service = DatabaseService()
+            logger.info("db_backend_selected", backend="supabase")
     return _db_service
 
 
