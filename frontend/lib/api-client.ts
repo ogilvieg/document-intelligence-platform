@@ -103,7 +103,8 @@ export interface AnalysisRequest {
 
 export interface HealthResponse {
   status: string;
-  timestamp?: string;
+  version: string;
+  timestamp: string;
 }
 
 /**
@@ -135,14 +136,14 @@ export class APIClient {
   async uploadDocument(
     file: File,
     title?: string,
-    source?: string
+    source?: string,
   ): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append("file", file);
     if (title) formData.append("title", title);
     if (source) formData.append("source", source);
 
-    const response = await fetch(`${this.baseURL}/api/v1/documents/upload`, {
+    const response = await fetch(`${this.baseURL}/documents/upload`, {
       method: "POST",
       headers: this.getAuthHeaders(),
       body: formData,
@@ -162,7 +163,7 @@ export class APIClient {
    * Run analysis on uploaded documents
    */
   async analyzeDocuments(request: AnalysisRequest): Promise<AnalysisResponse> {
-    const response = await fetch(`${this.baseURL}/api/v1/analyze`, {
+    const response = await fetch(`${this.baseURL}/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -176,7 +177,7 @@ export class APIClient {
         .json()
         .catch(() => ({ detail: "Analysis failed" }));
       throw new Error(
-        error.detail || `Analysis failed: ${response.statusText}`
+        error.detail || `Analysis failed: ${response.statusText}`,
       );
     }
 
@@ -194,9 +195,9 @@ export class APIClient {
       top_k?: number;
       similarity_threshold?: number;
       temperature?: number;
-    }
+    },
   ): Promise<RAGAnalysisResponse> {
-    const response = await fetch(`${this.baseURL}/api/v1/analyze-rag`, {
+    const response = await fetch(`${this.baseURL}/analyze-rag`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -207,7 +208,7 @@ export class APIClient {
         document_ids: options?.document_ids,
         doc_type: options?.doc_type,
         top_k: options?.top_k || 5,
-        similarity_threshold: options?.similarity_threshold || 0.5,
+        similarity_threshold: options?.similarity_threshold || 0.3,
         temperature: options?.temperature || 0.7,
       }),
     });
@@ -217,7 +218,7 @@ export class APIClient {
         .json()
         .catch(() => ({ detail: "RAG analysis failed" }));
       throw new Error(
-        error.detail || `RAG analysis failed: ${response.statusText}`
+        error.detail || `RAG analysis failed: ${response.statusText}`,
       );
     }
 
@@ -229,7 +230,7 @@ export class APIClient {
    */
   async checkHealth(): Promise<HealthResponse> {
     const response = await fetch(
-      `${this.baseURL.replace("/api/v1", "")}/health`
+      `${this.baseURL.replace("/api/v1", "")}/health`,
     );
 
     if (!response.ok) {
@@ -243,7 +244,9 @@ export class APIClient {
    * List all uploaded documents (not yet implemented in backend)
    */
   async listDocuments(): Promise<any[]> {
-    const response = await fetch(`${this.baseURL}/api/v1/documents`);
+    const response = await fetch(`${this.baseURL}/documents`, {
+      headers: this.getAuthHeaders(),
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to list documents: ${response.statusText}`);
@@ -256,9 +259,9 @@ export class APIClient {
    * Get a specific document by ID (not yet implemented in backend)
    */
   async getDocument(documentId: string): Promise<any> {
-    const response = await fetch(
-      `${this.baseURL}/api/v1/documents/${documentId}`
-    );
+    const response = await fetch(`${this.baseURL}/documents/${documentId}`, {
+      headers: this.getAuthHeaders(),
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to get document: ${response.statusText}`);
