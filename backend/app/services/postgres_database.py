@@ -85,6 +85,22 @@ class PostgresDatabaseService:
         return self._pool
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_row(row: asyncpg.Record, json_fields: tuple = ("metadata",)) -> dict:
+        """Convert an asyncpg Record to a dict, parsing any JSON string fields."""
+        d = dict(row)
+        for field in json_fields:
+            if field in d and isinstance(d[field], str):
+                try:
+                    d[field] = json.loads(d[field])
+                except (ValueError, TypeError):
+                    d[field] = {}
+        return d
+
+    # ------------------------------------------------------------------
     # Document Operations
     # ------------------------------------------------------------------
 
@@ -105,7 +121,7 @@ class PostgresDatabaseService:
                 json.dumps(document.metadata or {}),
             )
             logger.info("document_created", document_id=str(row["id"]))
-            return DocumentInDB(**dict(row))
+            return DocumentInDB(**self._parse_row(row))
         except Exception as e:
             logger.error("document_creation_failed", error=str(e))
             raise
@@ -119,7 +135,7 @@ class PostgresDatabaseService:
             )
             if row is None:
                 return None
-            return DocumentInDB(**dict(row))
+            return DocumentInDB(**self._parse_row(row))
         except Exception as e:
             logger.error("document_fetch_failed", document_id=str(document_id), error=str(e))
             return None
@@ -142,7 +158,7 @@ class PostgresDatabaseService:
                     "SELECT * FROM documents ORDER BY upload_date DESC LIMIT $1",
                     limit,
                 )
-            return [DocumentInDB(**dict(r)) for r in rows]
+            return [DocumentInDB(**self._parse_row(r)) for r in rows]
         except Exception as e:
             logger.error("document_list_failed", error=str(e))
             return []
@@ -197,7 +213,7 @@ class PostgresDatabaseService:
                     for c in chunks
                 ]),
             )
-            created = [ChunkInDB(**dict(r)) for r in rows]
+            created = [ChunkInDB(**self._parse_row(r)) for r in rows]
             logger.info("chunks_created", count=len(created))
             return created
         except Exception as e:
@@ -211,7 +227,7 @@ class PostgresDatabaseService:
                 "SELECT * FROM chunks WHERE document_id = $1 ORDER BY chunk_index",
                 document_id,
             )
-            return [ChunkInDB(**dict(r)) for r in rows]
+            return [ChunkInDB(**self._parse_row(r)) for r in rows]
         except Exception as e:
             logger.error("chunk_fetch_failed", document_id=str(document_id), error=str(e))
             return []
@@ -225,7 +241,7 @@ class PostgresDatabaseService:
             )
             if row is None:
                 return None
-            return ChunkInDB(**dict(row))
+            return ChunkInDB(**self._parse_row(row))
         except Exception as e:
             logger.error("chunk_fetch_failed", chunk_id=str(chunk_id), error=str(e))
             return None
