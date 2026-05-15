@@ -18,7 +18,7 @@ import {
 // ─── Inline style tokens ──────────────────────────────────────────────────────
 const S = {
   mono: "var(--font-ibm-plex-mono)" as const,
-  syne: "var(--font-syne)" as const,
+  syne: "var(--font-special-elite)" as const,
   sans: "var(--font-ibm-plex-sans)" as const,
 };
 
@@ -205,7 +205,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
       <div
         style={{
           marginBottom: "14px",
-          border: "1px solid rgba(6,182,212,0.2)",
+          border: "1px solid var(--border-cyan)",
           backgroundColor: "var(--cyan-dim)",
           padding: "20px 24px",
         }}
@@ -271,7 +271,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
             style={{
               marginTop: "16px",
               paddingTop: "16px",
-              borderTop: "1px solid rgba(6,182,212,0.1)",
+              borderTop: "1px solid rgba(43,94,167,0.12)",
             }}
           >
             <div
@@ -457,7 +457,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
       <div
         style={{
           marginBottom: "14px",
-          border: "1px solid rgba(0,102,255,0.25)",
+          border: "1px solid var(--border-amber)",
           backgroundColor: "var(--amber-dim)",
           padding: "22px 24px",
         }}
@@ -540,7 +540,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
         {analysisResult.output.strengths.length > 0 ? (
           <div
             style={{
-              border: "1px solid rgba(16,185,129,0.2)",
+              border: "1px solid var(--border-green)",
               backgroundColor: "var(--green-dim)",
               padding: "20px",
             }}
@@ -567,7 +567,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
         {analysisResult.output.gaps.length > 0 ? (
           <div
             style={{
-              border: "1px solid rgba(0,102,255,0.2)",
+              border: "1px solid var(--border-amber)",
               backgroundColor: "var(--amber-dim)",
               padding: "20px",
             }}
@@ -594,7 +594,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
         {analysisResult.output.risk_factors.length > 0 ? (
           <div
             style={{
-              border: "1px solid rgba(239,68,68,0.2)",
+              border: "1px solid var(--border-red)",
               backgroundColor: "var(--red-dim)",
               padding: "20px",
             }}
@@ -621,7 +621,7 @@ const AnalysisPanel = memo(function AnalysisPanel({
         {analysisResult.output.recommended_focus.length > 0 ? (
           <div
             style={{
-              border: "1px solid rgba(168,85,247,0.2)",
+              border: "1px solid var(--border-purple)",
               backgroundColor: "var(--purple-dim)",
               padding: "20px",
             }}
@@ -851,7 +851,7 @@ export default function Home() {
               fontFamily: S.mono,
               fontSize: "10px",
               color: "var(--green)",
-              border: "1px solid rgba(16,185,129,0.25)",
+              border: "1px solid rgba(45,106,79,0.3)",
               padding: "3px 10px",
               letterSpacing: "0.12em",
             }}
@@ -940,7 +940,7 @@ export default function Home() {
               cursor: isUploading ? "wait" : "pointer",
               transition: "border-color 0.15s, background-color 0.15s",
               boxShadow: dragActive
-                ? "inset 0 0 32px rgba(0,102,255,0.08)"
+                ? "inset 0 0 32px rgba(92,61,30,0.06)"
                 : "none",
             }}
           >
@@ -1038,7 +1038,7 @@ export default function Home() {
                 marginTop: "10px",
                 padding: "12px 16px",
                 backgroundColor: "var(--red-dim)",
-                border: "1px solid rgba(239,68,68,0.25)",
+                border: "1px solid rgba(155,34,38,0.28)",
               }}
             >
               <p
@@ -1113,7 +1113,7 @@ export default function Home() {
 
             <div
               style={{
-                border: "1px solid rgba(16,185,129,0.25)",
+                border: "1px solid rgba(45,106,79,0.28)",
                 backgroundColor: "var(--green-dim)",
                 padding: "22px 24px",
               }}
@@ -1153,7 +1153,7 @@ export default function Home() {
                     fontFamily: S.mono,
                     fontSize: "9px",
                     color: "var(--green)",
-                    border: "1px solid rgba(16,185,129,0.3)",
+                    border: "1px solid rgba(45,106,79,0.3)",
                     padding: "3px 10px",
                     letterSpacing: "0.12em",
                     flexShrink: 0,
@@ -1169,7 +1169,7 @@ export default function Home() {
                   gridTemplateColumns: "repeat(3, 1fr)",
                   gap: "20px",
                   paddingTop: "16px",
-                  borderTop: "1px solid rgba(16,185,129,0.1)",
+                  borderTop: "1px solid rgba(45,106,79,0.12)",
                 }}
               >
                 <DataCell
@@ -1241,7 +1241,7 @@ export default function Home() {
               border: `1px solid ${uploadedDocument && !isAnalyzing ? "var(--amber)" : "var(--border)"}`,
               color:
                 uploadedDocument && !isAnalyzing
-                  ? "#080c10"
+                  ? "#f9f4e8"
                   : "var(--text-dim)",
               fontFamily: S.syne,
               fontSize: "13px",
@@ -1294,7 +1294,7 @@ export default function Home() {
                 marginTop: "10px",
                 padding: "12px 16px",
                 backgroundColor: "var(--red-dim)",
-                border: "1px solid rgba(239,68,68,0.25)",
+                border: "1px solid rgba(155,34,38,0.28)",
               }}
             >
               <p

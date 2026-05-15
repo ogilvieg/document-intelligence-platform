@@ -9,53 +9,97 @@
 }
 
 :root {
-  --bg-base: #080c10;
-  --bg-surface: #0f1623;
-  --bg-elevated: #162030;
-  --border: #1e2d3d;
-  --border-bright: #2a3f55;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  --text-dim: #2a3f55;
-  --amber: #0066ff;
-  --amber-dim: rgba(0, 102, 255, 0.08);
-  --cyan: #06b6d4;
-  --cyan-dim: rgba(6, 182, 212, 0.06);
-  --green: #10b981;
-  --green-dim: rgba(16, 185, 129, 0.06);
-  --red: #ef4444;
-  --red-dim: rgba(239, 68, 68, 0.06);
-  --purple: #a855f7;
-  --purple-dim: rgba(168, 85, 247, 0.06);
+  /* ── Parchment surface ── */
+  --bg-base: #f9f4e8;
+  --bg-surface: #f2ead3;
+  --bg-elevated: #e9dfca;
+  --border: #c9b99a;
+  --border-bright: #a89070;
+
+  /* ── Ink ── */
+  --text-primary: #2d2d2d;
+  --text-secondary: #4e4039;
+  --text-muted: #7a6e62;
+  --text-dim: #b0a090;
+
+  /* ── Sepia accent (ink / annotation) ── */
+  --amber: #5c3d1e;
+  --amber-dim: rgba(92, 61, 30, 0.07);
+
+  /* ── Blueprint blue (technical drawing) ── */
+  --cyan: #2b5ea7;
+  --cyan-dim: rgba(43, 94, 167, 0.07);
+
+  /* ── Field-notes green ── */
+  --green: #2d6a4f;
+  --green-dim: rgba(45, 106, 79, 0.07);
+
+  /* ── Red-ink correction ── */
+  --red: #9b2226;
+  --red-dim: rgba(155, 34, 38, 0.07);
+
+  /* ── Margin annotation purple ── */
+  --purple: #6b3fa0;
+  --purple-dim: rgba(107, 63, 160, 0.07);
+
+  /* ── Pre-built border tints ── */
+  --border-cyan: rgba(43, 94, 167, 0.28);
+  --border-amber: rgba(92, 61, 30, 0.28);
+  --border-green: rgba(45, 106, 79, 0.28);
+  --border-red: rgba(155, 34, 38, 0.28);
+  --border-purple: rgba(107, 63, 160, 0.28);
 }
 
 html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
 }
 
 body {
   background-color: var(--bg-base);
+  /* Paper fibre grain — SVG fractal noise baked as data-URI */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
   color: var(--text-primary);
   font-family: var(--font-ibm-plex-sans), system-ui, sans-serif;
   line-height: 1.5;
 }
 
-/* Subtle scanline texture */
+/* Coffee ring stain — decorative, bottom-right quadrant */
+body::before {
+  content: "";
+  position: fixed;
+  bottom: 60px;
+  right: 80px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow:
+    0 0 0 3px rgba(139, 69, 19, 0.07),
+    0 0 0 5px rgba(139, 69, 19, 0.04),
+    0 0 0 18px rgba(139, 69, 19, 0.025),
+    0 0 0 20px rgba(139, 69, 19, 0.04);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Second, smaller ring — overlapping offset */
 body::after {
   content: "";
   position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    rgba(0, 0, 0, 0.04) 3px,
-    rgba(0, 0, 0, 0.04) 4px
-  );
+  bottom: 90px;
+  right: 130px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow:
+    0 0 0 2px rgba(139, 69, 19, 0.06),
+    0 0 0 4px rgba(139, 69, 19, 0.03),
+    0 0 0 12px rgba(139, 69, 19, 0.018),
+    0 0 0 14px rgba(139, 69, 19, 0.035);
   pointer-events: none;
-  z-index: 9999;
+  z-index: 0;
 }
 
 /* Scrollbar */
@@ -67,10 +111,10 @@ body::after {
   background: var(--bg-base);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-bright);
+  background: var(--border);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--amber);
+  background: var(--border-bright);
 }
 
 /* Global keyframes */
@@ -113,9 +157,9 @@ body::after {
 @keyframes pulseAmber {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(0, 102, 255, 0);
+    box-shadow: 0 0 0 0 rgba(92, 61, 30, 0);
   }
   50% {
-    box-shadow: 0 0 16px 2px rgba(0, 102, 255, 0.2);
+    box-shadow: 0 2px 12px 1px rgba(92, 61, 30, 0.12);
   }
 }
