@@ -1,9 +1,735 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  startTransition,
+  memo,
+} from "react";
 import { useDocumentUpload, useRAGAnalysis } from "@/lib/hooks";
-import { formatFileSize, formatLatency, formatCost } from "@/lib/api-client";
+import {
+  formatLatency,
+  formatCost,
+  RAGAnalysisResponse,
+} from "@/lib/api-client";
 
+// ─── Inline style tokens ──────────────────────────────────────────────────────
+const S = {
+  mono: "var(--font-ibm-plex-mono)" as const,
+  syne: "var(--font-syne)" as const,
+  sans: "var(--font-ibm-plex-sans)" as const,
+};
+
+type DivStyle = React.CSSProperties;
+
+const rule: DivStyle = {
+  flex: 1,
+  height: "1px",
+  backgroundColor: "var(--border)",
+};
+
+function SectionLabel({ n, label }: { n: string; label: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        marginBottom: "20px",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: S.mono,
+          fontSize: "10px",
+          color: "var(--amber)",
+          letterSpacing: "0.15em",
+        }}
+      >
+        {n}
+      </span>
+      <span
+        style={{
+          fontFamily: S.syne,
+          fontSize: "12px",
+          fontWeight: 700,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {label}
+      </span>
+      <div style={rule} />
+    </div>
+  );
+}
+
+function DataCell({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <div>
+      <p
+        style={{
+          fontFamily: S.mono,
+          fontSize: "9px",
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.15em",
+          marginBottom: "5px",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontFamily: S.mono,
+          fontSize: "18px",
+          color: accent ?? "var(--text-primary)",
+          fontWeight: 400,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SignedList({
+  items,
+  sigil,
+  color,
+}: {
+  items: string[];
+  sigil: string;
+  color: string;
+}) {
+  return (
+    <ul style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      {items.map((item, i) => (
+        <li
+          key={i}
+          style={{
+            fontSize: "13px",
+            color: "var(--text-secondary)",
+            paddingLeft: "18px",
+            position: "relative",
+            lineHeight: "1.6",
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: 0,
+              color,
+              fontFamily: S.mono,
+              fontWeight: 500,
+            }}
+          >
+            {sigil}
+          </span>
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ─── Analysis Panel (memoised — doesn't re-render during upload interactions) ─
+const AnalysisPanel = memo(function AnalysisPanel({
+  analysisResult,
+}: {
+  analysisResult: RAGAnalysisResponse;
+}) {
+  const [showRetrievalDetails, setShowRetrievalDetails] = useState(false);
+
+  return (
+    <div style={{ animation: "fadeInUp 0.4s ease forwards" }}>
+      {/* Section header with cost summary */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "20px",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: S.mono,
+            fontSize: "10px",
+            color: "var(--amber)",
+            letterSpacing: "0.15em",
+          }}
+        >
+          03
+        </span>
+        <span
+          style={{
+            fontFamily: S.syne,
+            fontSize: "12px",
+            fontWeight: 700,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--text-secondary)",
+          }}
+        >
+          Analysis
+        </span>
+        <div style={rule} />
+        <span
+          style={{
+            fontFamily: S.mono,
+            fontSize: "10px",
+            color: "var(--amber)",
+            letterSpacing: "0.1em",
+            flexShrink: 0,
+          }}
+        >
+          {analysisResult.llm_metadata.total_tokens.toLocaleString()} tokens ·{" "}
+          {formatCost(analysisResult.cost)}
+        </span>
+      </div>
+
+      {/* Retrieval Pipeline ─── */}
+      <div
+        style={{
+          marginBottom: "14px",
+          border: "1px solid rgba(6,182,212,0.2)",
+          backgroundColor: "var(--cyan-dim)",
+          padding: "20px 24px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "18px",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--cyan)",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}
+          >
+            Retrieval Pipeline
+          </p>
+          <button
+            onClick={() =>
+              startTransition(() => setShowRetrievalDetails((prev) => !prev))
+            }
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              background: "none",
+              border: "none",
+              letterSpacing: "0.12em",
+            }}
+          >
+            [{showRetrievalDetails ? "COLLAPSE" : "EXPAND"}]
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "20px",
+          }}
+        >
+          <DataCell
+            label="Chunks retrieved"
+            value={String(analysisResult.retrieval_metadata.chunks_retrieved)}
+            accent="var(--cyan)"
+          />
+          <DataCell
+            label="Total tokens"
+            value={analysisResult.llm_metadata.total_tokens.toLocaleString()}
+          />
+          <DataCell label="Cost" value={formatCost(analysisResult.cost)} />
+        </div>
+
+        {showRetrievalDetails ? (
+          <div
+            style={{
+              marginTop: "16px",
+              paddingTop: "16px",
+              borderTop: "1px solid rgba(6,182,212,0.1)",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "14px",
+              }}
+            >
+              {[
+                [
+                  "Embedding model",
+                  analysisResult.retrieval_metadata.query_embedding_model,
+                ],
+                ["LLM model", analysisResult.llm_metadata.model],
+                [
+                  "Temperature",
+                  String(analysisResult.llm_metadata.temperature),
+                ],
+                [
+                  "Prompt / Completion",
+                  `${analysisResult.llm_metadata.prompt_tokens.toLocaleString()} / ${analysisResult.llm_metadata.completion_tokens.toLocaleString()} tokens`,
+                ],
+              ].map(([label, val]) => (
+                <div key={label}>
+                  <p
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "9px",
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.15em",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    {label}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "11px",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {val}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Retrieved Chunks ─── */}
+      {analysisResult.retrieved_chunks &&
+      analysisResult.retrieved_chunks.length > 0 ? (
+        <div style={{ marginBottom: "14px" }}>
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              marginBottom: "10px",
+            }}
+          >
+            Retrieved Chunks ({analysisResult.retrieved_chunks.length})
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {analysisResult.retrieved_chunks.map((chunk, idx) => (
+              <div
+                key={chunk.chunk_id}
+                style={{
+                  border: "1px solid var(--border)",
+                  backgroundColor: "var(--bg-surface)",
+                  padding: "14px 18px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    marginBottom: "8px",
+                    gap: "16px",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: S.mono,
+                          fontSize: "10px",
+                          color: "var(--amber)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        #{String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: S.syne,
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          color: "var(--text-primary)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {chunk.document_title}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: S.mono,
+                          fontSize: "9px",
+                          color: "var(--text-muted)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        chunk {chunk.chunk_index}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    <p
+                      style={{
+                        fontFamily: S.mono,
+                        fontSize: "13px",
+                        color: "var(--cyan)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {(chunk.similarity_score * 100).toFixed(1)}%
+                    </p>
+                    <div
+                      style={{
+                        width: "72px",
+                        height: "2px",
+                        backgroundColor: "var(--border)",
+                        marginTop: "4px",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${chunk.similarity_score * 100}%`,
+                          height: "100%",
+                          backgroundColor: "var(--cyan)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "11px",
+                    color: "var(--text-muted)",
+                    lineHeight: "1.7",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical" as const,
+                    overflow: "hidden",
+                  }}
+                >
+                  {chunk.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Overall Assessment ─── */}
+      <div
+        style={{
+          marginBottom: "14px",
+          border: "1px solid rgba(0,102,255,0.25)",
+          backgroundColor: "var(--amber-dim)",
+          padding: "22px 24px",
+        }}
+      >
+        <p
+          style={{
+            fontFamily: S.mono,
+            fontSize: "9px",
+            color: "var(--amber)",
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
+            marginBottom: "12px",
+          }}
+        >
+          Overall Assessment
+        </p>
+        <p
+          style={{
+            fontSize: "14px",
+            color: "var(--text-primary)",
+            lineHeight: "1.75",
+            marginBottom: "18px",
+            fontFamily: S.sans,
+          }}
+        >
+          {analysisResult.output.overall_fit}
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <span
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.15em",
+              flexShrink: 0,
+            }}
+          >
+            Confidence
+          </span>
+          <div
+            style={{
+              flex: 1,
+              maxWidth: "220px",
+              height: "2px",
+              backgroundColor: "var(--border)",
+            }}
+          >
+            <div
+              style={{
+                width: `${analysisResult.output.confidence * 100}%`,
+                height: "100%",
+                backgroundColor: "var(--amber)",
+                transition: "width 0.8s ease",
+              }}
+            />
+          </div>
+          <span
+            style={{
+              fontFamily: S.mono,
+              fontSize: "12px",
+              color: "var(--amber)",
+              flexShrink: 0,
+            }}
+          >
+            {(analysisResult.output.confidence * 100).toFixed(0)}%
+          </span>
+        </div>
+      </div>
+
+      {/* 4-quadrant grid ─── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "10px",
+          marginBottom: "14px",
+        }}
+      >
+        {analysisResult.output.strengths.length > 0 ? (
+          <div
+            style={{
+              border: "1px solid rgba(16,185,129,0.2)",
+              backgroundColor: "var(--green-dim)",
+              padding: "20px",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: S.mono,
+                fontSize: "9px",
+                color: "var(--green)",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                marginBottom: "14px",
+              }}
+            >
+              Strengths
+            </p>
+            <SignedList
+              items={analysisResult.output.strengths}
+              sigil="+"
+              color="var(--green)"
+            />
+          </div>
+        ) : null}
+        {analysisResult.output.gaps.length > 0 ? (
+          <div
+            style={{
+              border: "1px solid rgba(0,102,255,0.2)",
+              backgroundColor: "var(--amber-dim)",
+              padding: "20px",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: S.mono,
+                fontSize: "9px",
+                color: "var(--amber)",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                marginBottom: "14px",
+              }}
+            >
+              Gaps
+            </p>
+            <SignedList
+              items={analysisResult.output.gaps}
+              sigil="~"
+              color="var(--amber)"
+            />
+          </div>
+        ) : null}
+        {analysisResult.output.risk_factors.length > 0 ? (
+          <div
+            style={{
+              border: "1px solid rgba(239,68,68,0.2)",
+              backgroundColor: "var(--red-dim)",
+              padding: "20px",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: S.mono,
+                fontSize: "9px",
+                color: "var(--red)",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                marginBottom: "14px",
+              }}
+            >
+              Risk Factors
+            </p>
+            <SignedList
+              items={analysisResult.output.risk_factors}
+              sigil="!"
+              color="var(--red)"
+            />
+          </div>
+        ) : null}
+        {analysisResult.output.recommended_focus.length > 0 ? (
+          <div
+            style={{
+              border: "1px solid rgba(168,85,247,0.2)",
+              backgroundColor: "var(--purple-dim)",
+              padding: "20px",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: S.mono,
+                fontSize: "9px",
+                color: "var(--purple)",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                marginBottom: "14px",
+              }}
+            >
+              Focus Areas
+            </p>
+            <SignedList
+              items={analysisResult.output.recommended_focus}
+              sigil="→"
+              color="var(--purple)"
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {/* Citations ─── */}
+      {analysisResult.citations.length > 0 ? (
+        <div
+          style={{
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-surface)",
+            padding: "20px 24px",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              marginBottom: "14px",
+            }}
+          >
+            Source Citations ({analysisResult.citations.length})
+          </p>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            {analysisResult.citations.map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  borderLeft: "2px solid var(--border)",
+                  paddingLeft: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "11px",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {c.document_title}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "10px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {(c.relevance_score * 100).toFixed(0)}% relevance
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "11px",
+                    color: "var(--text-muted)",
+                    lineHeight: "1.6",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical" as const,
+                    overflow: "hidden",
+                  }}
+                >
+                  {c.chunk_text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Home() {
   const { upload, isUploading, uploadError, uploadedDocument, resetUpload } =
     useDocumentUpload();
@@ -16,678 +742,634 @@ export default function Home() {
   } = useRAGAnalysis();
 
   const [dragActive, setDragActive] = useState(false);
-  const [showRetrievalDetails, setShowRetrievalDetails] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load dismissed state from localStorage on mount
   useEffect(() => {
-    const dismissed = localStorage.getItem("uploadInfoDismissed");
-    if (dismissed === "true") {
+    if (localStorage.getItem("uploadInfoDismissed") === "true")
       setShowUploadInfo(false);
-    }
   }, []);
 
-  // Handle dismissing the info box
-  const handleDismissInfo = () => {
-    setShowUploadInfo(false);
+  const handleDismissInfo = useCallback(() => {
+    startTransition(() => setShowUploadInfo(false));
     localStorage.setItem("uploadInfoDismissed", "true");
-  };
+  }, []);
 
-  // Handle drag events
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
+    setDragActive(e.type === "dragenter" || e.type === "dragover");
+  }, []);
+
+  // Defined before handleDrop so the closure is always fresh
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      resetAnalysis();
+      await upload(file, file.name.replace(/\.[^/.]+$/, ""), "web_upload");
+    },
+    [resetAnalysis, upload],
+  );
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       setDragActive(false);
-    }
-  }, []);
+      if (e.dataTransfer.files?.[0])
+        await handleFileUpload(e.dataTransfer.files[0]);
+    },
+    [handleFileUpload],
+  );
 
-  // Handle drop
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+  const handleChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      e.preventDefault();
+      if (e.target.files?.[0]) await handleFileUpload(e.target.files[0]);
+    },
+    [handleFileUpload],
+  );
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      await handleFileUpload(file);
-    }
-  }, []);
-
-  // Handle file upload
-  const handleFileUpload = async (file: File) => {
-    resetAnalysis(); // Clear previous analysis when uploading new file
-    await upload(file, file.name.replace(/\.[^/.]+$/, ""), "web_upload");
-  };
-
-  // Handle file input change
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      await handleFileUpload(e.target.files[0]);
-    }
-  };
-
-  // Handle click on upload area
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  // Handle analyze button
   const handleAnalyze = async () => {
     if (!uploadedDocument) return;
-
-    const query = `Analyze this ${uploadedDocument.type} document: ${uploadedDocument.title}. 
-    Provide a comprehensive assessment including overall fit, strengths, gaps, risk factors, and recommended focus areas.`;
-
+    const query = `Analyze this ${uploadedDocument.type} document: ${uploadedDocument.title}. Provide a comprehensive assessment including overall fit, strengths, gaps, risk factors, and recommended focus areas.`;
     await analyzeWithRAG(query, {
       document_ids: [uploadedDocument.id],
       top_k: 5,
-      similarity_threshold: 0.3, // Lowered from 0.5 for better recall
+      similarity_threshold: 0.3,
       temperature: 0.7,
     });
   };
 
-  // Handle reset
   const handleReset = () => {
     resetUpload();
     resetAnalysis();
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="container mx-auto px-4 py-16">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-            Document Intelligence Platform
+    <main style={{ minHeight: "100vh", backgroundColor: "var(--bg-base)" }}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <header
+        style={{
+          borderBottom: "1px solid var(--border)",
+          padding: "18px 40px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "var(--bg-surface)",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: S.syne,
+              fontSize: "22px",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              color: "var(--text-primary)",
+            }}
+          >
+            DOC<span style={{ color: "var(--amber)" }}>SAGE</span>
           </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            AI-powered document analysis with structured outputs and full
-            traceability
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "10px",
+              color: "var(--text-muted)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              marginTop: "2px",
+            }}
+          >
+            Document Intelligence
           </p>
         </div>
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          <span
+            style={{
+              fontFamily: S.mono,
+              fontSize: "10px",
+              color: "var(--green)",
+              border: "1px solid rgba(16,185,129,0.25)",
+              padding: "3px 10px",
+              letterSpacing: "0.12em",
+            }}
+          >
+            ● ONLINE
+          </span>
+          <span
+            style={{
+              fontFamily: S.mono,
+              fontSize: "10px",
+              color: "var(--text-dim)",
+              letterSpacing: "0.12em",
+            }}
+          >
+            RAG · pgvector · gpt-4o
+          </span>
+        </div>
+      </header>
 
-        {/* Main Content Area */}
-        <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
-          {/* Upload Section */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              Upload Documents
-            </h2>
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      <div
+        style={{ maxWidth: "860px", margin: "0 auto", padding: "52px 40px" }}
+      >
+        {/* ── 01 INGEST ──────────────────────────────────────────────────── */}
+        <section style={{ marginBottom: "40px" }}>
+          <SectionLabel n="01" label="Ingest" />
 
-            {/* Info Box */}
-            {showUploadInfo && (
-              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <svg
-                    className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <div className="flex-1">
-                    <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
-                      Supported Document Types
-                    </p>
-                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                      <li>
-                        • <strong>PDF</strong> - Resumes, reports, technical
-                        documents
-                      </li>
-                      <li>
-                        • <strong>Markdown (.md)</strong> - Documentation,
-                        notes, specifications
-                      </li>
-                      <li>
-                        • <strong>HTML</strong> - Web pages, formatted documents
-                      </li>
-                      <li>
-                        • <strong>Text (.txt)</strong> - Plain text files
-                      </li>
-                    </ul>
-                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                      💡 The AI will analyze your document and provide
-                      structured insights with full traceability and citations.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleDismissInfo}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
-                    aria-label="Dismiss"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
+          {/* Format hint */}
+          {showUploadInfo && (
+            <div
+              style={{
+                marginBottom: "14px",
+                padding: "12px 16px",
+                backgroundColor: "var(--cyan-dim)",
+                border: "1px solid rgba(6,182,212,0.18)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "11px",
+                  color: "var(--text-muted)",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                <span style={{ color: "var(--cyan)" }}>ACCEPTS</span>
+                {"  "}PDF · MD · HTML · TXT — max 10 MB
+              </p>
+              <button
+                onClick={handleDismissInfo}
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "16px",
+                  color: "var(--text-dim)",
+                  cursor: "pointer",
+                  background: "none",
+                  border: "none",
+                  lineHeight: 1,
+                }}
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* Drop zone */}
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              border: `1px solid ${dragActive ? "var(--amber)" : "var(--border)"}`,
+              backgroundColor: dragActive
+                ? "var(--amber-dim)"
+                : "var(--bg-surface)",
+              padding: "52px 32px",
+              textAlign: "center",
+              cursor: isUploading ? "wait" : "pointer",
+              transition: "border-color 0.15s, background-color 0.15s",
+              boxShadow: dragActive
+                ? "inset 0 0 32px rgba(0,102,255,0.08)"
+                : "none",
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: "none" }}
+              accept=".pdf,.md,.html,.txt"
+              onChange={handleChange}
+              disabled={isUploading}
+            />
+
+            {/* Scanning bar during upload */}
+            {isUploading && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "1px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: "50%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, transparent, var(--amber), transparent)",
+                    animation: "scanH 1.2s linear infinite",
+                  }}
+                />
               </div>
             )}
 
-            <div
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer ${
-                dragActive
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : "border-slate-300 dark:border-slate-600 hover:border-blue-500"
-              } ${isUploading ? "opacity-50 cursor-wait" : ""}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              onClick={handleClick}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.md,.html,.txt"
-                onChange={handleChange}
-                disabled={isUploading}
-              />
-              <div className="space-y-4">
-                {isUploading ? (
-                  <>
-                    <div className="mx-auto h-12 w-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    </div>
-                    <p className="text-lg text-slate-600 dark:text-slate-300">
-                      Uploading and processing...
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="mx-auto h-12 w-12 text-slate-400"
-                      stroke="currentColor"
-                      fill="none"
-                      viewBox="0 0 48 48"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-lg text-slate-600 dark:text-slate-300">
-                        <span className="font-semibold text-blue-600 dark:text-blue-400">
-                          Click to upload
-                        </span>{" "}
-                        or drag and drop
-                      </p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        PDF, Markdown, or HTML files (max 10MB)
-                      </p>
-                    </div>
-                  </>
-                )}
+            {isUploading ? (
+              <div>
+                <p
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "12px",
+                    color: "var(--amber)",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  PROCESSING
+                </p>
+                <p
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "10px",
+                    color: "var(--text-dim)",
+                    marginTop: "8px",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  chunking → embedding → indexing
+                  <span style={{ animation: "blink 1s step-end infinite" }}>
+                    _
+                  </span>
+                </p>
               </div>
-            </div>
-
-            {/* Upload Error */}
-            {uploadError && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-red-800 dark:text-red-200 text-sm">
-                  <strong>Error:</strong> {uploadError}
+            ) : (
+              <div>
+                <p
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "13px",
+                    color: dragActive ? "var(--amber)" : "var(--text-muted)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {dragActive
+                    ? "> release to upload"
+                    : "> drop file here or click to browse"}
+                  <span
+                    style={{
+                      animation: "blink 1s step-end infinite",
+                      color: "var(--amber)",
+                    }}
+                  >
+                    _
+                  </span>
                 </p>
               </div>
             )}
           </div>
 
-          {/* Uploaded Document Info */}
-          {uploadedDocument && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Uploaded Document
-                </h3>
-                <button
-                  onClick={handleReset}
-                  className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                >
-                  Clear & Upload New
-                </button>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">
-                      {uploadedDocument.title}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      {uploadedDocument.metadata.original_filename} •{" "}
-                      {uploadedDocument.type.toUpperCase()}
-                    </p>
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs font-medium rounded">
-                    ✓ Uploaded
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-600">
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Text Length
-                    </p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {uploadedDocument.metadata.text_length.toLocaleString()}{" "}
-                      chars
-                    </p>
-                  </div>
-                  {uploadedDocument.metadata.chunks && (
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Chunks
-                      </p>
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {uploadedDocument.metadata.chunks.total_chunks} chunks
-                        <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
-                          (avg{" "}
-                          {Math.round(
-                            uploadedDocument.metadata.chunks.average_chunk_size
-                          )}{" "}
-                          chars)
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Analyze Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={handleAnalyze}
-              disabled={!uploadedDocument || isAnalyzing}
-              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          {/* Upload error */}
+          {uploadError && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "12px 16px",
+                backgroundColor: "var(--red-dim)",
+                border: "1px solid rgba(239,68,68,0.25)",
+              }}
             >
-              {isAnalyzing ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Analyzing...
-                </>
-              ) : (
-                "Run Analysis"
-              )}
-            </button>
-          </div>
-
-          {/* Analysis Error */}
-          {analysisError && (
-            <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-red-800 dark:text-red-200 text-sm">
-                <strong>Error:</strong> {analysisError}
+              <p
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "11px",
+                  color: "var(--red)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                ERR: {uploadError}
               </p>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Results Section */}
-        {analysisResult && (
-          <div className="max-w-4xl mx-auto mt-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-                Analysis Results
-              </h2>
-              <div className="flex gap-4 text-sm">
-                <span className="text-slate-600 dark:text-slate-400">
-                  🔍 {analysisResult.retrieval_metadata.chunks_retrieved} chunks
-                </span>
-                <span className="text-slate-600 dark:text-slate-400">
-                  💰 {formatCost(analysisResult.cost)}
-                </span>
-              </div>
+        {/* ── 02 INDEXED ─────────────────────────────────────────────────── */}
+        {uploadedDocument && (
+          <section
+            style={{
+              marginBottom: "40px",
+              animation: "fadeInUp 0.35s ease forwards",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "20px",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "10px",
+                  color: "var(--amber)",
+                  letterSpacing: "0.15em",
+                }}
+              >
+                02
+              </span>
+              <span
+                style={{
+                  fontFamily: S.syne,
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                Indexed
+              </span>
+              <div style={rule} />
+              <button
+                onClick={handleReset}
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "10px",
+                  color: "var(--text-dim)",
+                  cursor: "pointer",
+                  background: "none",
+                  border: "none",
+                  letterSpacing: "0.1em",
+                  flexShrink: 0,
+                }}
+              >
+                [CLEAR]
+              </button>
             </div>
 
-            {/* Retrieval Traceability Section */}
-            <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 uppercase tracking-wide flex items-center gap-2">
-                  <span>🔍</span> Retrieval Pipeline
-                </h3>
-                <button
-                  onClick={() => setShowRetrievalDetails(!showRetrievalDetails)}
-                  className="text-xs text-indigo-700 dark:text-indigo-300 hover:underline"
-                >
-                  {showRetrievalDetails ? "Hide Details" : "Show Details"}
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+            <div
+              style={{
+                border: "1px solid rgba(16,185,129,0.25)",
+                backgroundColor: "var(--green-dim)",
+                padding: "22px 24px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  marginBottom: "18px",
+                }}
+              >
                 <div>
-                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
-                    Chunks Retrieved
-                  </p>
-                  <p className="text-slate-800 dark:text-slate-200">
-                    {analysisResult.retrieval_metadata.chunks_retrieved}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
-                    Embedding Model
-                  </p>
-                  <p className="text-slate-800 dark:text-slate-200 text-xs">
-                    {analysisResult.retrieval_metadata.query_embedding_model}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
-                    LLM Tokens
-                  </p>
-                  <p className="text-slate-800 dark:text-slate-200">
-                    {analysisResult.llm_metadata.total_tokens.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Collapsible Details */}
-              {showRetrievalDetails && (
-                <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800 space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
-                        LLM Model
-                      </p>
-                      <p className="text-slate-800 dark:text-slate-200 text-xs">
-                        {analysisResult.llm_metadata.model}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
-                        Temperature
-                      </p>
-                      <p className="text-slate-800 dark:text-slate-200">
-                        {analysisResult.llm_metadata.temperature}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
-                        Prompt Tokens
-                      </p>
-                      <p className="text-slate-800 dark:text-slate-200">
-                        {analysisResult.llm_metadata.prompt_tokens.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1">
-                        Completion Tokens
-                      </p>
-                      <p className="text-slate-800 dark:text-slate-200">
-                        {analysisResult.llm_metadata.completion_tokens.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  {analysisResult.retrieval_metadata.filters && (
-                    <div>
-                      <p className="text-indigo-700 dark:text-indigo-300 font-medium mb-1 text-sm">
-                        Filters Applied
-                      </p>
-                      <div className="bg-white dark:bg-slate-700 rounded p-2 text-xs">
-                        <pre className="text-slate-700 dark:text-slate-300 overflow-x-auto">
-                          {JSON.stringify(
-                            analysisResult.retrieval_metadata.filters,
-                            null,
-                            2
-                          )}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Retrieved Chunks Section */}
-            {analysisResult.retrieved_chunks &&
-              analysisResult.retrieved_chunks.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                    <span>📄</span> Retrieved Chunks (
-                    {analysisResult.retrieved_chunks.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {analysisResult.retrieved_chunks.map((chunk, idx) => (
-                      <div
-                        key={chunk.chunk_id}
-                        className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                                {chunk.document_title}
-                              </span>
-                              <span className="text-xs px-2 py-0.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded">
-                                Chunk {chunk.chunk_index}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {chunk.doc_type.toUpperCase()} • ID:{" "}
-                              {chunk.chunk_id.slice(0, 8)}...
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                              Similarity
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-20 bg-slate-200 dark:bg-slate-600 rounded-full h-1.5">
-                                <div
-                                  className="bg-indigo-600 dark:bg-indigo-400 h-1.5 rounded-full"
-                                  style={{
-                                    width: `${chunk.similarity_score * 100}%`,
-                                  }}
-                                ></div>
-                              </div>
-                              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                                {(chunk.similarity_score * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3">
-                          {chunk.text}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Overall Assessment */}
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2 uppercase tracking-wide">
-                Overall Assessment
-              </h3>
-              <p className="text-slate-800 dark:text-slate-200">
-                {analysisResult.output.overall_fit}
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                  Confidence:
-                </span>
-                <div className="flex-1 bg-blue-200 dark:bg-blue-800 rounded-full h-2 max-w-xs">
-                  <div
-                    className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all"
+                  <p
                     style={{
-                      width: `${analysisResult.output.confidence * 100}%`,
+                      fontFamily: S.syne,
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                      marginBottom: "4px",
                     }}
-                  ></div>
+                  >
+                    {uploadedDocument.title}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "10px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {uploadedDocument.metadata.original_filename}
+                  </p>
                 </div>
-                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                  {(analysisResult.output.confidence * 100).toFixed(0)}%
+                <span
+                  style={{
+                    fontFamily: S.mono,
+                    fontSize: "9px",
+                    color: "var(--green)",
+                    border: "1px solid rgba(16,185,129,0.3)",
+                    padding: "3px 10px",
+                    letterSpacing: "0.12em",
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓ INDEXED
                 </span>
               </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "20px",
+                  paddingTop: "16px",
+                  borderTop: "1px solid rgba(16,185,129,0.1)",
+                }}
+              >
+                <DataCell
+                  label="Format"
+                  value={uploadedDocument.type.toUpperCase()}
+                  accent="var(--cyan)"
+                />
+                <DataCell
+                  label="Characters"
+                  value={uploadedDocument.metadata.text_length.toLocaleString()}
+                />
+                {uploadedDocument.metadata.chunks && (
+                  <div>
+                    <p
+                      style={{
+                        fontFamily: S.mono,
+                        fontSize: "9px",
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.15em",
+                        marginBottom: "5px",
+                      }}
+                    >
+                      Chunks
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: S.mono,
+                        fontSize: "18px",
+                        color: "var(--text-primary)",
+                        fontWeight: 400,
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {uploadedDocument.metadata.chunks.total_chunks}
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--text-muted)",
+                          marginLeft: "6px",
+                        }}
+                      >
+                        ×{" "}
+                        {Math.round(
+                          uploadedDocument.metadata.chunks.average_chunk_size,
+                        )}{" "}
+                        avg
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Strengths */}
-            {analysisResult.output.strengths.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
-                  <span className="text-xl">✓</span> Strengths
-                </h3>
-                <ul className="space-y-2">
-                  {analysisResult.output.strengths.map((strength, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"
-                    >
-                      <span className="text-green-600 dark:text-green-400 mt-0.5">
-                        •
-                      </span>
-                      <span className="text-slate-800 dark:text-slate-200">
-                        {strength}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Gaps */}
-            {analysisResult.output.gaps.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
-                  <span className="text-xl">⚠</span> Gaps & Areas for
-                  Improvement
-                </h3>
-                <ul className="space-y-2">
-                  {analysisResult.output.gaps.map((gap, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg"
-                    >
-                      <span className="text-amber-600 dark:text-amber-400 mt-0.5">
-                        •
-                      </span>
-                      <span className="text-slate-800 dark:text-slate-200">
-                        {gap}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Risk Factors */}
-            {analysisResult.output.risk_factors.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
-                  <span className="text-xl">⚡</span> Risk Factors
-                </h3>
-                <ul className="space-y-2">
-                  {analysisResult.output.risk_factors.map((risk, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg"
-                    >
-                      <span className="text-red-600 dark:text-red-400 mt-0.5">
-                        •
-                      </span>
-                      <span className="text-slate-800 dark:text-slate-200">
-                        {risk}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Recommended Focus */}
-            {analysisResult.output.recommended_focus.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-400 mb-3 flex items-center gap-2">
-                  <span className="text-xl">→</span> Recommended Focus Areas
-                </h3>
-                <ul className="space-y-2">
-                  {analysisResult.output.recommended_focus.map((focus, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg"
-                    >
-                      <span className="text-purple-600 dark:text-purple-400 mt-0.5">
-                        •
-                      </span>
-                      <span className="text-slate-800 dark:text-slate-200">
-                        {focus}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Citations */}
-            {analysisResult.citations.length > 0 && (
-              <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">
-                  Source Citations ({analysisResult.citations.length})
-                </h3>
-                <div className="space-y-3">
-                  {analysisResult.citations.map((citation, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg text-sm"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-slate-700 dark:text-slate-300">
-                          {citation.document_title}
-                        </span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          Relevance:{" "}
-                          {(citation.relevance_score * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                      <p className="text-slate-600 dark:text-slate-400 text-xs line-clamp-2">
-                        {citation.chunk_text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          </section>
         )}
 
-        {/* Empty State for Results */}
-        {!analysisResult && (
-          <div className="max-w-4xl mx-auto mt-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              Analysis Results
-            </h2>
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-8 text-center text-slate-500 dark:text-slate-400">
+        {/* ── RUN ANALYSIS ───────────────────────────────────────────────── */}
+        <section style={{ marginBottom: "40px" }}>
+          <button
+            onClick={handleAnalyze}
+            disabled={!uploadedDocument || isAnalyzing}
+            style={{
+              width: "100%",
+              padding: "16px 28px",
+              backgroundColor:
+                uploadedDocument && !isAnalyzing
+                  ? "var(--amber)"
+                  : "transparent",
+              border: `1px solid ${uploadedDocument && !isAnalyzing ? "var(--amber)" : "var(--border)"}`,
+              color:
+                uploadedDocument && !isAnalyzing
+                  ? "#080c10"
+                  : "var(--text-dim)",
+              fontFamily: S.syne,
+              fontSize: "13px",
+              fontWeight: 800,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              cursor:
+                !uploadedDocument || isAnalyzing ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "14px",
+            }}
+          >
+            {isAnalyzing ? (
+              <>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "11px",
+                    height: "11px",
+                    border: "2px solid var(--amber)",
+                    borderTopColor: "transparent",
+                    borderRadius: "50%",
+                    animation: "spin 0.7s linear infinite",
+                  }}
+                />
+                ANALYZING
+              </>
+            ) : (
+              <>
+                RUN ANALYSIS{" "}
+                <span
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 400,
+                    fontFamily: S.sans,
+                  }}
+                >
+                  →
+                </span>
+              </>
+            )}
+          </button>
+
+          {analysisError && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "12px 16px",
+                backgroundColor: "var(--red-dim)",
+                border: "1px solid rgba(239,68,68,0.25)",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: S.mono,
+                  fontSize: "11px",
+                  color: "var(--red)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                ERR: {analysisError}
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ── 03 ANALYSIS ────────────────────────────────────────────────── */}
+        {!analysisResult ? (
+          <section
+            style={{
+              border: "1px solid var(--border)",
+              backgroundColor: "var(--bg-surface)",
+              padding: "48px 32px",
+            }}
+          >
+            <SectionLabel n="03" label="Analysis" />
+            <p
+              style={{
+                fontFamily: S.mono,
+                fontSize: "11px",
+                color: "var(--text-dim)",
+                textAlign: "center",
+                letterSpacing: "0.12em",
+              }}
+            >
               {uploadedDocument
-                ? 'Click "Run Analysis" to analyze your document'
-                : "Upload a document to get started"}
-            </div>
-          </div>
+                ? "— awaiting analysis run —"
+                : "— upload a document to begin —"}
+            </p>
+          </section>
+        ) : (
+          <AnalysisPanel analysisResult={analysisResult} />
         )}
 
-        {/* Footer */}
-        <div className="text-center mt-12 text-sm text-slate-500 dark:text-slate-400">
-          <p>Week 2 - RAG with Retrieval Traceability</p>
-        </div>
+        {/* ── Footer ─────────────────────────────────────────────────────── */}
+        <footer
+          style={{
+            marginTop: "72px",
+            paddingTop: "24px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-dim)",
+              letterSpacing: "0.12em",
+            }}
+          >
+            text-embedding-3-small · pgvector · gpt-4o
+          </p>
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "9px",
+              color: "var(--text-dim)",
+              letterSpacing: "0.12em",
+            }}
+          >
+            docsage.phoenix7.dev
+          </p>
+        </footer>
       </div>
     </main>
   );
