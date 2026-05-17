@@ -743,11 +743,18 @@ export default function Home() {
 
   const [dragActive, setDragActive] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(true);
+  const [showIntro, setShowIntro] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (localStorage.getItem("uploadInfoDismissed") === "true")
       setShowUploadInfo(false);
+    if (localStorage.getItem("introDismissed") === "true") setShowIntro(false);
+  }, []);
+
+  const handleDismissIntro = useCallback(() => {
+    startTransition(() => setShowIntro(false));
+    localStorage.setItem("introDismissed", "true");
   }, []);
 
   const handleDismissInfo = useCallback(() => {
@@ -875,6 +882,131 @@ export default function Home() {
       <div
         style={{ maxWidth: "860px", margin: "0 auto", padding: "52px 40px" }}
       >
+        {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
+        {showIntro && (
+          <div
+            style={{
+              marginBottom: "44px",
+              border: "1px solid var(--border)",
+              backgroundColor: "var(--bg-surface)",
+              padding: "28px 32px",
+              position: "relative",
+            }}
+          >
+            {/* Dismiss */}
+            <button
+              onClick={handleDismissIntro}
+              aria-label="Dismiss introduction"
+              style={{
+                position: "absolute",
+                top: "14px",
+                right: "18px",
+                fontFamily: S.mono,
+                fontSize: "16px",
+                color: "var(--text-dim)",
+                cursor: "pointer",
+                background: "none",
+                border: "none",
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+
+            {/* Title */}
+            <p
+              style={{
+                fontFamily: S.syne,
+                fontSize: "13px",
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--text-primary)",
+                marginBottom: "18px",
+              }}
+            >
+              What is DocSage?
+            </p>
+
+            {/* One-liner */}
+            <p
+              style={{
+                fontFamily: S.sans,
+                fontSize: "14px",
+                color: "var(--text-secondary)",
+                lineHeight: "1.75",
+                marginBottom: "24px",
+                maxWidth: "620px",
+              }}
+            >
+              Upload a document — a résumé, report, contract, or research paper
+              — and DocSage uses retrieval-augmented generation (RAG) to extract
+              a structured assessment: overall fit, strengths, gaps, risk
+              factors, and focus areas.
+            </p>
+
+            {/* 3-step flow */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "16px",
+              }}
+            >
+              {(
+                [
+                  [
+                    "01 — Ingest",
+                    "Drop in a PDF, Markdown, HTML, or plain-text file. The document is chunked and embedded into a pgvector index.",
+                    "var(--cyan)",
+                  ],
+                  [
+                    "02 — Retrieve",
+                    "Your query is embedded and the top-k most semantically similar chunks are retrieved using cosine similarity.",
+                    "var(--amber)",
+                  ],
+                  [
+                    "03 — Analyse",
+                    "GPT-4o synthesises the retrieved chunks into a structured report. Every claim is grounded in source citations.",
+                    "var(--purple)",
+                  ],
+                ] as [string, string, string][]
+              ).map(([heading, body, accent]) => (
+                <div
+                  key={heading}
+                  style={{
+                    borderLeft: `2px solid ${accent}`,
+                    paddingLeft: "14px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: S.mono,
+                      fontSize: "10px",
+                      color: accent,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {heading}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: S.sans,
+                      fontSize: "12px",
+                      color: "var(--text-muted)",
+                      lineHeight: "1.65",
+                    }}
+                  >
+                    {body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── 01 INGEST ──────────────────────────────────────────────────── */}
         <section style={{ marginBottom: "40px" }}>
           <SectionLabel n="01" label="Ingest" />
