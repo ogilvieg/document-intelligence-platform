@@ -6,10 +6,13 @@ Organizations need to quickly extract insights from large volumes of unstructure
 
 This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline: documents are chunked, embedded as vectors, and stored in a database. Queries retrieve the most semantically relevant chunks, which are passed as grounded context to an LLM — so every answer cites exactly where it came from, with full cost and retrieval transparency.
 
-> **🌐 Live Demo:** [https://docsage.phoenix7.dev](https://docsage.phoenix7.dev)  
-> **📚 Backend API:** [https://docsage-api.phoenix7.dev](https://docsage-api.phoenix7.dev)
+> - **🌐 Live Demo:** [https://docsage.phoenix7.dev](https://docsage.phoenix7.dev)
+> - **📚 API Documentation:** [https://docsage-api.phoenix7.dev/docs](https://docsage-api.phoenix7.dev/docs)
+> - **🩺 API Liveness:** [https://docsage-api.phoenix7.dev/health](https://docsage-api.phoenix7.dev/health)
 >
-> **Status:** ✅ Fully deployed and operational
+> The backend runs on Render's free tier and may need about 30 seconds to wake.
+> A healthy liveness response confirms that the API process is online; it does
+> not guarantee database or end-to-end analysis readiness.
 
 ## 🚀 Features
 
@@ -30,9 +33,12 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 - ✅ **Retrieval Traceability**: Full visibility into which chunks influenced the response
 - ✅ **Advanced Filtering**: Filter by document type, specific documents, or metadata
 - ✅ **Frontend Visualization**: Interactive display of retrieved chunks with similarity scores
-- ✅ **Automatic Embeddings**: Documents are automatically embedded after upload
+- ✅ **Analysis-Ready Uploads**: Upload succeeds only after every persisted chunk has an embedding
+- ✅ **Scoped Retrieval Fallback**: Single-document analysis can use its best ranked chunks when none clear the default threshold
 - ✅ **Production Deployment**: Backend on Render, Frontend on Vercel, Database on Supabase
 - ✅ **Secure API Proxy**: Server-side proxy hides API keys from client
+- ✅ **Evidence-Backed Status**: The homepage reports connecting, delayed, online, and unavailable from a real liveness probe
+- ✅ **Shareable Project Identity**: Canonical, Open Graph, Twitter, and social-card metadata
 
 ## 📋 Table of Contents
 
@@ -86,7 +92,7 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 1. **Query Embedding**: User query → OpenAI embeddings (1536 dimensions)
 2. **Vector Search**: Semantic similarity search via pgvector with cosine distance
 3. **Filtering**: Apply document_ids, doc_type, or custom metadata filters
-4. **Ranking**: Sort by similarity score, apply threshold (default: 0.3)
+4. **Ranking**: Sort by similarity score and apply the default 0.3 threshold. If one explicitly selected document has no matches, retry that same scoped search at 0.0 and record the fallback.
 5. **Context Building**: Format top-k chunks with source references
 6. **LLM Analysis**: GPT-4o generates response with chunk citations
 7. **Traceability**: Return full metadata (chunks used, scores, tokens, cost)
@@ -108,8 +114,14 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 ### Live System
 
 - **Frontend**: https://docsage.phoenix7.dev (Vercel)
-- **Backend API**: https://docsage-api.phoenix7.dev (Render)
+- **Backend API documentation**: https://docsage-api.phoenix7.dev/docs (Render)
+- **Backend liveness**: https://docsage-api.phoenix7.dev/health
 - **Database**: Supabase PostgreSQL with pgvector extension
+
+The homepage probes liveness through a same-origin, uncached, bounded health
+route. It displays connecting, delayed, API online, or unavailable and explains
+possible Render startup latency. The backend health endpoint is deliberately a
+liveness check, not a database-readiness guarantee.
 
 ### Infrastructure
 
@@ -173,6 +185,12 @@ Each of these was found in live deployment — not caught by tests. The pattern:
 - _Symptom_: Users uploaded documents and immediately queried — got zero results
 - _Root cause_: Embedding generation was a separate manual step; no feedback to indicate it hadn't run
 - _Fix_: Auto-trigger embedding generation immediately after successful upload; added `match_chunks()` SQL function to support the vector search
+
+**Upload Reported Success Without Analysis Readiness**
+
+- _Symptom_: Resume uploads appeared successful, then analysis repeatedly returned “No relevant chunks found”
+- _Root cause_: Upload swallowed embedding failures, while the UI always used a 0.3 threshold and offered no way to follow the error's advice to lower it
+- _Fix_: Require one persisted embedding per chunk before returning upload success, remove partial documents, reject zero-chunk files, and retry at 0.0 only for a single explicitly selected document
 
 ### Security Features
 
@@ -252,7 +270,8 @@ POST /documents/upload
 Content-Type: multipart/form-data
 
 file: <binary>
-doc_type: "resume" | "cover_letter" | "other"
+title: <optional title>
+source: <optional source>
 ```
 
 **Response:**
@@ -260,12 +279,34 @@ doc_type: "resume" | "cover_letter" | "other"
 ```json
 {
   "id": "uuid",
-  "filename": "resume.pdf",
-  "doc_type": "resume",
-  "file_size": 45678,
-  "upload_date": "2026-01-04T14:30:00Z"
+  "title": "resume.pdf",
+  "type": "pdf",
+  "source": null,
+  "version": "1.0",
+  "created_at": "2026-08-20T14:30:00Z",
+  "metadata": {
+    "original_filename": "resume.pdf",
+    "text_length": 45678,
+    "page_count": 2,
+    "parser": "pymupdf",
+    "content_type": "application/pdf",
+    "chunks": {
+      "total_chunks": 6,
+      "average_chunk_size": 487,
+      "chunk_size_config": 512,
+      "chunk_overlap_config": 50
+    },
+    "embeddings": {
+      "status": "ready",
+      "total_embeddings": 6
+    }
+  }
 }
 ```
+
+The route returns `201` only when every persisted chunk has an embedding.
+Embedding failures return `503` and remove the partial document. Files with no
+searchable chunks return `422`.
 
 #### Generate Embeddings
 
@@ -278,10 +319,12 @@ POST /documents/{document_id}/generate-embeddings
 ```json
 {
   "document_id": "uuid",
-  "chunks_embedded": 12,
-  "embedding_model": "text-embedding-3-small",
+  "total_embeddings": 12,
+  "newly_generated": 0,
+  "skipped_existing": 12,
+  "model": "text-embedding-3-small",
   "embedding_dimensions": 1536,
-  "cost": 0.00015
+  "timestamp": "2026-08-20T14:31:00Z"
 }
 ```
 
@@ -290,17 +333,12 @@ POST /documents/{document_id}/generate-embeddings
 #### Search Chunks
 
 ```http
-POST /search/chunks
+POST /search/chunks?query=What%20are%20the%20candidate%27s%20Python%20skills%3F&top_k=5&similarity_threshold=0.3
 Content-Type: application/json
 
 {
-  "query": "What are the candidate's Python skills?",
-  "top_k": 5,
-  "similarity_threshold": 0.5,
-  "filters": {
-    "document_ids": ["uuid1", "uuid2"],
-    "doc_type": "resume"
-  }
+  "document_ids": ["uuid1", "uuid2"],
+  "doc_type": "resume"
 }
 ```
 
@@ -308,23 +346,25 @@ Content-Type: application/json
 
 ```json
 {
+  "query": "What are the candidate's Python skills?",
+  "chunks_retrieved": 1,
+  "retrieval_timestamp": "2026-08-20T14:35:00Z",
+  "query_embedding_model": "text-embedding-3-small",
+  "filters_applied": {
+    "document_ids": ["uuid1", "uuid2"],
+    "doc_type": "resume"
+  },
   "chunks": [
     {
       "chunk_id": "uuid",
       "document_id": "uuid",
       "document_title": "John_Doe_Resume.pdf",
-      "doc_type": "resume",
+      "document_type": "resume",
       "chunk_index": 3,
       "text": "Python: 5 years experience with Django, FastAPI...",
       "similarity_score": 0.89
     }
-  ],
-  "metadata": {
-    "chunks_retrieved": 5,
-    "query_embedding_model": "text-embedding-3-small",
-    "timestamp": "2026-01-04T14:35:00Z",
-    "filters_applied": { "doc_type": "resume" }
-  }
+  ]
 }
 ```
 
@@ -338,7 +378,7 @@ Content-Type: application/json
   "query": "Evaluate the candidate's qualifications for a senior backend role",
   "document_ids": ["uuid1"],
   "top_k": 5,
-  "similarity_threshold": 0.5,
+  "similarity_threshold": 0.3,
   "temperature": 0.7
 }
 ```
@@ -350,17 +390,20 @@ Content-Type: application/json
   "analysis_id": "uuid",
   "query": "Evaluate the candidate's qualifications...",
   "output": {
-    "summary": "Strong backend engineer with 5+ years Python...",
-    "key_points": ["..."],
-    "confidence_score": 0.85
+    "overall_fit": "Strong backend engineer with relevant experience",
+    "strengths": ["Python", "FastAPI", "system design"],
+    "gaps": ["Limited evidence of team leadership"],
+    "risk_factors": ["Target-role requirements were not supplied"],
+    "confidence": 0.85,
+    "recommended_focus": ["Validate leadership scope"]
   },
   "citations": [
     {
       "chunk_id": "uuid",
       "document_id": "uuid",
       "document_title": "resume.pdf",
-      "chunk_index": 3,
-      "text": "Python: 5 years with Django..."
+      "chunk_text": "Python: 5 years with Django...",
+      "relevance_score": 0.89
     }
   ],
   "retrieved_chunks": [
@@ -377,22 +420,32 @@ Content-Type: application/json
   "retrieval_metadata": {
     "chunks_retrieved": 5,
     "query_embedding_model": "text-embedding-3-small",
-    "timestamp": "2026-01-04T14:35:00Z"
+    "retrieval_timestamp": "2026-08-20T14:35:00Z",
+    "filters_applied": {
+      "document_ids": ["uuid1"]
+    },
+    "similarity_threshold_used": 0.3,
+    "threshold_fallback_used": false
   },
   "llm_metadata": {
     "model": "gpt-4o-2024-11-20",
     "temperature": 0.7,
+    "latency_ms": 1200,
     "prompt_tokens": 850,
     "completion_tokens": 320,
-    "total_tokens": 1170
+    "total_tokens": 1170,
+    "cost_usd": 0.00585
   },
-  "cost": {
-    "embedding_cost": 0.00002,
-    "llm_cost": 0.00585,
-    "total_cost": 0.00587
-  }
+  "cost": 0.00585,
+  "created_at": "2026-08-20T14:35:01Z"
 }
 ```
+
+For exactly one requested `document_id`, an empty 0.3 search retries the same
+document at 0.0 without regenerating the query embedding. The response then
+reports `similarity_threshold_used: 0.0` and
+`threshold_fallback_used: true`. Multi-document, document-type, and unscoped
+searches retain the requested relevance threshold.
 
 ---
 
@@ -409,7 +462,8 @@ The RAG (Retrieval-Augmented Generation) pipeline combines semantic search with 
 2. **Semantic Retrieval**
    - Vector similarity search via pgvector (cosine distance)
    - Optional filters: document IDs, doc types, metadata
-   - Returns top-k most relevant chunks above similarity threshold
+   - Returns top-k chunks above the requested similarity threshold
+   - For one explicitly selected document only, retries at 0.0 if the initial search is empty
 
 3. **Context Construction**
    - Retrieved chunks formatted with source metadata
@@ -447,7 +501,7 @@ The decisions below are the ones most likely to surface in a technical discussio
 ### Similarity Threshold (0.3)
 
 - **Tradeoff**: Higher threshold = higher precision, lower recall. A threshold of 0.5 filtered out relevant chunks on short documents; 0.1 returns noisy, semantically distant results.
-- **Decision**: 0.3 — empirically tuned by running queries against real uploaded documents and checking whether returned chunks were actually relevant. This is a parameter that should be re-evaluated as document volume grows.
+- **Decision**: 0.3 remains the default for normal retrieval. When a visitor explicitly analyzes one uploaded document and no chunk clears 0.3, retry that same document at 0.0 instead of reporting an unexplained failure. Keep the threshold for multi-document and corpus-wide searches to avoid silently grounding answers in unrelated content. The response records the effective threshold and whether fallback occurred.
 
 ### pgvector vs. Dedicated Vector DB (Pinecone, Weaviate)
 
@@ -472,7 +526,7 @@ The decisions below are the ones most likely to surface in a technical discussio
 | `document_ids`         | UUID[] | null     | Limit search to specific docs               |
 | `doc_type`             | string | null     | Filter by type (resume, cover_letter, etc.) |
 | `top_k`                | int    | 5        | Number of chunks to retrieve                |
-| `similarity_threshold` | float  | 0.3      | Minimum cosine similarity (0.0-1.0)         |
+| `similarity_threshold` | float  | 0.3      | Minimum cosine similarity; a single-document request may use the recorded 0.0 fallback |
 | `temperature`          | float  | 0.7      | LLM creativity (0.0=focused, 1.0=creative)  |
 
 ---
@@ -538,7 +592,7 @@ document-intelligence-platform/
 │   │   │   └── llm_service.py    # LLM with citations
 │   │   ├── models/       # Pydantic models
 │   │   └── database/     # Supabase client
-│   ├── tests/            # 37 comprehensive tests
+│   ├── tests/            # Unit and API integration tests
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/              # Next.js pages
@@ -561,19 +615,24 @@ pytest
 pytest --cov=app --cov-report=html
 
 # Run specific test suites
-pytest tests/test_retrieval.py          # Retrieval pipeline (12 tests)
-pytest tests/test_llm_service_rag.py    # LLM RAG features (13 tests)
-pytest tests/test_rag_endpoints.py      # API endpoints (12 tests)
+pytest tests/test_upload_endpoints.py   # Upload and embedding readiness
+pytest tests/test_retrieval.py          # Retrieval and scoped fallback
+pytest tests/test_rag_endpoints.py      # RAG API contracts
 ```
 
 **Test Coverage:**
 
-- ✅ 37 total tests
-- ✅ Retrieval pipeline with filters
+- ✅ Upload success, zero-chunk, partial-embedding, and provider-failure behavior
+- ✅ Retrieval thresholds, filters, and single-document fallback
 - ✅ LLM analysis with citations
 - ✅ API endpoints with error handling
 - ✅ Vector search operations
 - ✅ Cost tracking and metadata
+
+The focused upload, retrieval, and RAG suites are the release gate for these
+contracts. The repository-wide backend run also includes legacy
+`tests/test_chunking.py` cases that still call the newer async/doc-type
+chunking API through its previous synchronous signature.
 
 ---
 
@@ -581,26 +640,20 @@ pytest tests/test_rag_endpoints.py      # API endpoints (12 tests)
 
 ### Test Philosophy
 
-All core functionality is tested with comprehensive coverage:
+Core upload and analysis behavior is covered at service and API boundaries:
 
 1. **Unit Tests**: Services tested in isolation with mocks
 2. **Integration Tests**: API endpoints with TestClient
 3. **Traceability Tests**: Verify complete metadata in responses
 4. **Error Handling**: Invalid inputs, missing data, edge cases
 
-### Example Test Output
+### Frontend Validation
 
 ```bash
-$ pytest tests/test_rag_endpoints.py -v
-
-tests/test_rag_endpoints.py::test_generate_embeddings_success PASSED
-tests/test_rag_endpoints.py::test_search_chunks_basic PASSED
-tests/test_rag_endpoints.py::test_search_chunks_with_filters PASSED
-tests/test_rag_endpoints.py::test_analyze_rag_basic PASSED
-tests/test_rag_endpoints.py::test_analyze_rag_with_document_filter PASSED
-tests/test_rag_endpoints.py::test_rag_endpoint_traceability PASSED
-...
-======================== 12 passed in 2.34s =========================
+cd frontend
+npm test
+npx tsc --noEmit
+npm run build
 ```
 
 ---
@@ -628,10 +681,9 @@ The frontend provides rich visualization of RAG operations:
 
 ### Example Screenshot Flow
 
-1. Upload resume and cover letter
-2. Generate embeddings for both documents
-3. Ask: "What makes this candidate qualified for a backend role?"
-4. View:
+1. Upload a resume; the upload completes only after its chunks are embedded
+2. Ask: "What makes this candidate qualified for a backend role?"
+3. View:
    - Retrieved 5 chunks (similarity: 0.85-0.92)
    - LLM analysis citing specific sections
    - Cost: $0.00587 total
