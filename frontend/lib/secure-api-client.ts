@@ -10,6 +10,7 @@ import {
   AnalysisRequest,
   AnalysisResponse,
   RAGAnalysisResponse,
+  SampleAnalysisResponse,
   HealthResponse,
 } from "./api-client";
 
@@ -17,6 +18,19 @@ import {
  * API Client class that uses Next.js API routes as a proxy
  */
 export class SecureAPIClient {
+  async getSampleAnalysis(): Promise<SampleAnalysisResponse> {
+    const response = await fetch(`/api/proxy?endpoint=/sample-analysis`);
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Sample analysis is temporarily unavailable" }));
+      throw new Error(
+        error.detail || "Sample analysis is temporarily unavailable",
+      );
+    }
+    return response.json();
+  }
+
   /**
    * Upload a document for processing
    */

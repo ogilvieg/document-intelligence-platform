@@ -8,7 +8,11 @@ import {
   startTransition,
   memo,
 } from "react";
-import { useDocumentUpload, useRAGAnalysis } from "@/lib/hooks";
+import {
+  useDocumentUpload,
+  useRAGAnalysis,
+  useSampleAnalysis,
+} from "@/lib/hooks";
 import {
   formatLatency,
   formatCost,
@@ -779,6 +783,13 @@ export default function Home() {
     analysisResult,
     resetAnalysis,
   } = useRAGAnalysis();
+  const {
+    loadSample,
+    isSampleLoading,
+    sampleError,
+    sampleResult,
+    resetSample,
+  } = useSampleAnalysis();
 
   const [dragActive, setDragActive] = useState(false);
   const [showUploadInfo, setShowUploadInfo] = useState(true);
@@ -810,10 +821,11 @@ export default function Home() {
   // Defined before handleDrop so the closure is always fresh
   const handleFileUpload = useCallback(
     async (file: File) => {
+      resetSample();
       resetAnalysis();
       await upload(file, file.name.replace(/\.[^/.]+$/, ""), "web_upload");
     },
-    [resetAnalysis, upload],
+    [resetAnalysis, resetSample, upload],
   );
 
   const handleDrop = useCallback(
@@ -838,6 +850,7 @@ export default function Home() {
   const handleReset = () => {
     resetUpload();
     resetAnalysis();
+    resetSample();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1038,6 +1051,40 @@ export default function Home() {
         {/* ── 01 INGEST ──────────────────────────────────────────────────── */}
         <section style={{ marginBottom: "40px" }}>
           <SectionLabel n="01" label="Ingest" />
+
+          <div className="sample-entry">
+            <div>
+              <p className="sample-entry-title">Explore before you upload</p>
+              <p className="sample-entry-copy">
+                Inspect a precomputed analysis of a fictional document. No file,
+                database record, embedding, or model call is created.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadSample()}
+              disabled={isSampleLoading}
+            >
+              {isSampleLoading ? "Loading sample" : "Try a sample document"}
+            </button>
+          </div>
+          {sampleError ? (
+            <div className="sample-error" role="alert">
+              <p>{sampleError}</p>
+              <p>The backend may be starting or temporarily unavailable.</p>
+              <button type="button" onClick={() => void loadSample()}>
+                Retry sample
+              </button>
+            </div>
+          ) : null}
+
+          <div className="retention-disclosure">
+            <p>
+              The original file is processed in memory and is not retained.
+            </p>
+            <p>Extracted text, chunks, and embeddings are stored for retrieval.</p>
+            <p>Do not upload confidential material to this public demo.</p>
+          </div>
 
           {/* Format hint */}
           {showUploadInfo && (
@@ -1386,6 +1433,17 @@ export default function Home() {
           </section>
         )}
 
+        {sampleResult && !uploadedDocument ? (
+          <section className="sample-source" aria-label="Synthetic sample source">
+            <div>
+              <p className="sample-entry-title">Synthetic sample</p>
+              <p>{sampleResult.sample.title}</p>
+              <p>{sampleResult.sample.description}</p>
+            </div>
+            <span>PRECOMPUTED · {sampleResult.sample.fixture_version}</span>
+          </section>
+        ) : null}
+
         {/* ── RUN ANALYSIS ───────────────────────────────────────────────── */}
         <section style={{ marginBottom: "40px" }}>
           {uploadedDocument ? (
@@ -1404,7 +1462,7 @@ export default function Home() {
         </section>
 
         {/* ── 03 ANALYSIS ────────────────────────────────────────────────── */}
-        {!analysisResult ? (
+        {!analysisResult && !sampleResult ? (
           <section
             style={{
               border: "1px solid var(--border)",
@@ -1427,9 +1485,19 @@ export default function Home() {
                 : "— upload a document to begin —"}
             </p>
           </section>
-        ) : (
+        ) : analysisResult ? (
           <AnalysisPanel analysisResult={analysisResult} />
-        )}
+        ) : sampleResult ? (
+          <section aria-label="Synthetic sample result">
+            <div className="sample-result-notice">
+              <strong>Synthetic sample</strong>
+              <span>
+                Precomputed fictional data; metrics are representative, not a live run.
+              </span>
+            </div>
+            <AnalysisPanel analysisResult={sampleResult.analysis} />
+          </section>
+        ) : null}
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <footer

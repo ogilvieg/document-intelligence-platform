@@ -1,17 +1,44 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home from "./page";
-import { useDocumentUpload, useRAGAnalysis } from "@/lib/hooks";
+import { useDocumentUpload, useRAGAnalysis, useSampleAnalysis } from "@/lib/hooks";
+import type { SampleAnalysisResponse } from "@/lib/api-client";
 
 vi.mock("@/lib/hooks", () => ({
   useDocumentUpload: vi.fn(),
   useRAGAnalysis: vi.fn(),
+  useSampleAnalysis: vi.fn(),
 }));
 
 const mockedUseDocumentUpload = vi.mocked(useDocumentUpload);
 const mockedUseRAGAnalysis = vi.mocked(useRAGAnalysis);
+const mockedUseSampleAnalysis = vi.mocked(useSampleAnalysis);
+
+const sampleResponse = {
+  sample: {
+    synthetic: true,
+    fixture_version: "v1",
+    title: "Synthetic Agreement",
+    description: "Precomputed fictional example.",
+    metrics_are_representative: true,
+  },
+  analysis: {
+    analysis_id: "sample-1",
+    query: "Review risks",
+    output: {
+      overall_fit: "Needs revision.", strengths: ["Clear fees"], gaps: ["No cure period"],
+      risk_factors: ["Uncapped liability"], confidence: 0.8, recommended_focus: ["Add a cap"],
+    },
+    citations: [{ chunk_id: "c1", document_id: "sample-doc", document_title: "Synthetic Agreement (Sample)", chunk_text: "Termination text", relevance_score: 0.9 }],
+    retrieved_chunks: [{ chunk_id: "c1", document_id: "sample-doc", document_title: "Synthetic Agreement (Sample)", doc_type: "pdf", chunk_index: 1, text: "Termination text", similarity_score: 0.9 }],
+    retrieval_metadata: { chunks_retrieved: 1, query_embedding_model: "example-model", retrieval_timestamp: "2026-08-20T00:00:00Z", filters_applied: { document_ids: ["sample-doc"] } },
+    llm_metadata: { model: "example-model", temperature: 0, latency_ms: 100, prompt_tokens: 100, completion_tokens: 20, total_tokens: 120, cost_usd: 0.002 },
+    cost: 0.002,
+    created_at: "2026-08-20T00:00:01Z",
+  },
+} satisfies SampleAnalysisResponse;
 
 describe("Home", () => {
   beforeEach(() => {
@@ -29,6 +56,103 @@ describe("Home", () => {
       analysisResult: null,
       resetAnalysis: vi.fn(),
     });
+    mockedUseSampleAnalysis.mockReturnValue({
+      loadSample: vi.fn(),
+      isSampleLoading: false,
+      sampleError: null,
+      sampleResult: null,
+      resetSample: vi.fn(),
+    });
+  });
+
+  it("offers a zero-risk sample and renders it as synthetic representative data", async () => {
+    const loadSample = vi.fn().mockResolvedValue(sampleResponse);
+    mockedUseSampleAnalysis.mockReturnValue({
+      loadSample,
+      isSampleLoading: false,
+      sampleError: null,
+      sampleResult: sampleResponse,
+      resetSample: vi.fn(),
+    });
+
+    render(<Home />);
+    await userEvent.click(screen.getByRole("button", { name: /try a sample document/i }));
+
+    expect(loadSample).toHaveBeenCalledOnce();
+    expect(screen.getAllByText(/synthetic sample/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/representative.*not a live run/i)).toBeTruthy();
+    expect(screen.getByText(sampleResponse.analysis.query)).toBeTruthy();
+    expect(mockedUseDocumentUpload().upload).not.toHaveBeenCalled();
+    expect(mockedUseRAGAnalysis().analyzeWithRAG).not.toHaveBeenCalled();
+  });
+
+  it("keeps upload available and supports retry when the sample backend is unavailable", async () => {
+    const loadSample = vi.fn();
+    mockedUseSampleAnalysis.mockReturnValue({
+      loadSample,
+      isSampleLoading: false,
+      sampleError: "Backend is waking up",
+      sampleResult: null,
+      resetSample: vi.fn(),
+    });
+
+    const { container } = render(<Home />);
+    expect(screen.getByRole("alert").textContent).toMatch(/backend is waking up/i);
+    expect(container.querySelector('input[type="file"]')).not.toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /retry sample/i }));
+    expect(loadSample).toHaveBeenCalledOnce();
+  });
+
+  it("clears sample state before transitioning to a real upload", async () => {
+    const resetSample = vi.fn();
+    const upload = vi.fn().mockResolvedValue(null);
+    mockedUseSampleAnalysis.mockReturnValue({
+      loadSample: vi.fn(), isSampleLoading: false, sampleError: null,
+      sampleResult: sampleResponse, resetSample,
+    });
+    mockedUseDocumentUpload.mockReturnValue({
+      upload, isUploading: false, uploadError: null, uploadedDocument: null, resetUpload: vi.fn(),
+    });
+    const { container } = render(<Home />);
+
+    await userEvent.upload(
+      container.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["document"], "mine.txt", { type: "text/plain" }),
+    );
+
+    expect(resetSample).toHaveBeenCalledOnce();
+    expect(resetSample.mock.invocationCallOrder[0]).toBeLessThan(upload.mock.invocationCallOrder[0]);
+  });
+
+  it("clears sample state before a dropped file is uploaded", async () => {
+    const resetSample = vi.fn();
+    const upload = vi.fn().mockResolvedValue(null);
+    mockedUseSampleAnalysis.mockReturnValue({
+      loadSample: vi.fn(), isSampleLoading: false, sampleError: null,
+      sampleResult: sampleResponse, resetSample,
+    });
+    mockedUseDocumentUpload.mockReturnValue({
+      upload, isUploading: false, uploadError: null, uploadedDocument: null, resetUpload: vi.fn(),
+    });
+    const { container } = render(<Home />);
+    const dropZone = container.querySelector('input[type="file"]')?.parentElement as HTMLElement;
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        files: [new File(["document"], "dropped.txt", { type: "text/plain" })],
+      },
+    });
+
+    expect(dropZone).toBeTruthy();
+    expect(resetSample.mock.invocationCallOrder[0]).toBeLessThan(upload.mock.invocationCallOrder[0]);
+  });
+
+  it("shows the persistence boundary and confidentiality warning before selection", () => {
+    render(<Home />);
+
+    expect(screen.getByText(/original file.*processed in memory.*not retained/i)).toBeTruthy();
+    expect(screen.getByText(/extracted text.*chunks.*embeddings.*stored/i)).toBeTruthy();
+    expect(screen.getByText(/do not upload confidential material/i)).toBeTruthy();
   });
 
   it("renders the client page with analysis unavailable before upload", () => {

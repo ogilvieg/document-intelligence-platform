@@ -8,6 +8,7 @@ import {
   AnalysisResponse,
   AnalysisRequest,
   RAGAnalysisResponse,
+  SampleAnalysisResponse,
 } from "./api-client";
 import { secureApiClient as apiClient } from "./secure-api-client";
 
@@ -188,5 +189,48 @@ export function useRAGAnalysis(): UseRAGAnalysisState {
     analysisError,
     analysisResult,
     resetAnalysis,
+  };
+}
+
+export function useSampleAnalysis() {
+  const [isSampleLoading, setIsSampleLoading] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const [sampleResult, setSampleResult] =
+    useState<SampleAnalysisResponse | null>(null);
+  const activeRequestId = useRef(0);
+
+  const loadSample = async () => {
+    const requestId = ++activeRequestId.current;
+    setIsSampleLoading(true);
+    setSampleError(null);
+    try {
+      const result = await apiClient.getSampleAnalysis();
+      if (activeRequestId.current === requestId) setSampleResult(result);
+      return result;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Sample analysis is temporarily unavailable";
+      if (activeRequestId.current === requestId) setSampleError(message);
+      return null;
+    } finally {
+      if (activeRequestId.current === requestId) setIsSampleLoading(false);
+    }
+  };
+
+  const resetSample = () => {
+    activeRequestId.current += 1;
+    setIsSampleLoading(false);
+    setSampleError(null);
+    setSampleResult(null);
+  };
+
+  return {
+    loadSample,
+    isSampleLoading,
+    sampleError,
+    sampleResult,
+    resetSample,
   };
 }

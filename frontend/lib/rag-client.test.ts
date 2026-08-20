@@ -104,3 +104,18 @@ describe.each([
     expect(result.created_at).toBe(backendResponse.created_at);
   });
 });
+
+describe("sample analysis contract", () => {
+  it("fetches the precomputed sample through the secure GET proxy", async () => {
+    const payload = { sample: { synthetic: true }, analysis: { query: "Risk review" } };
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse(payload));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new SecureAPIClient().getSampleAnalysis();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/proxy?endpoint=/sample-analysis",
+    );
+    expect(result).toEqual(payload);
+  });
+});

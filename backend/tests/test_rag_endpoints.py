@@ -20,6 +20,31 @@ from app.models.schemas import Citation
 client = TestClient(app)
 
 
+def test_sample_analysis_returns_precomputed_synthetic_evidence_without_services():
+    """The public sample is deterministic and never invokes costly RAG services."""
+    with patch("app.api.routes.get_db_service") as mock_db, \
+         patch("app.api.routes.retrieval_service") as mock_retrieval, \
+         patch("app.api.routes.embedding_service") as mock_embedding, \
+         patch("app.api.routes.llm_service") as mock_llm:
+        first = client.get("/api/v1/sample-analysis")
+        second = client.get("/api/v1/sample-analysis")
+
+    assert first.status_code == 200
+    assert second.json() == first.json()
+    data = first.json()
+    assert data["sample"]["synthetic"] is True
+    assert data["sample"]["fixture_version"]
+    assert data["sample"]["metrics_are_representative"] is True
+    assert data["analysis"]["retrieved_chunks"][0]["similarity_score"] > 0
+    assert data["analysis"]["citations"][0]["relevance_score"] > 0
+    assert data["analysis"]["llm_metadata"]["total_tokens"] > 0
+    assert data["analysis"]["cost"] > 0
+    mock_db.assert_not_called()
+    mock_retrieval.retrieve_chunks.assert_not_called()
+    mock_embedding.embed_query.assert_not_called()
+    mock_llm.analyze_with_chunks.assert_not_called()
+
+
 @pytest.fixture
 def sample_document_id():
     """Sample document ID."""
