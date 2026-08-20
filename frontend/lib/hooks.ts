@@ -2,15 +2,96 @@
  * React hooks for API operations with loading and error states
  */
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DocumentUploadResponse,
   AnalysisResponse,
   AnalysisRequest,
+  HealthResponse,
   RAGAnalysisResponse,
   SampleAnalysisResponse,
 } from "./api-client";
 import { secureApiClient as apiClient } from "./secure-api-client";
+
+export type BackendHealthStatus =
+  | "connecting"
+  | "delayed"
+  | "online"
+  | "unavailable";
+
+export async function probeBackendHealth(
+  checkHealth: (signal?: AbortSignal) => Promise<HealthResponse> = (signal) =>
+    apiClient.checkHealth(signal),
+  signal?: AbortSignal,
+): Promise<
+  Extract<BackendHealthStatus, "online" | "unavailable">
+> {
+  try {
+    await checkHealth(signal);
+    return "online";
+  } catch {
+    return "unavailable";
+  }
+}
+
+const defaultBackendHealthProbe = (signal: AbortSignal) =>
+  probeBackendHealth(undefined, signal);
+
+export function useBackendHealth(
+  probe: (
+    signal: AbortSignal,
+  ) => Promise<Extract<BackendHealthStatus, "online" | "unavailable">> =
+    defaultBackendHealthProbe,
+) {
+  const [status, setStatus] = useState<BackendHealthStatus>("connecting");
+  const delayedTimer = useRef<number | null>(null);
+  const activeProbeId = useRef(0);
+  const activeController = useRef<AbortController | null>(null);
+
+  const executeProbe = useCallback(async () => {
+    const probeId = ++activeProbeId.current;
+    activeController.current?.abort();
+    const controller = new AbortController();
+    activeController.current = controller;
+    if (delayedTimer.current !== null) {
+      window.clearTimeout(delayedTimer.current);
+    }
+    delayedTimer.current = window.setTimeout(
+      () => {
+        if (activeProbeId.current === probeId) setStatus("delayed");
+      },
+      5_000,
+    );
+    const nextStatus = await probe(controller.signal);
+    if (activeProbeId.current !== probeId) return;
+    if (delayedTimer.current !== null) {
+      window.clearTimeout(delayedTimer.current);
+    }
+    delayedTimer.current = null;
+    activeController.current = null;
+    setStatus(nextStatus);
+  }, [probe]);
+
+  const retry = useCallback(() => {
+    setStatus("connecting");
+    return executeProbe();
+  }, [executeProbe]);
+
+  useEffect(() => {
+    const kickoffTimer = window.setTimeout(() => void executeProbe(), 0);
+    return () => {
+      window.clearTimeout(kickoffTimer);
+      activeProbeId.current += 1;
+      activeController.current?.abort();
+      activeController.current = null;
+      if (delayedTimer.current !== null) {
+        window.clearTimeout(delayedTimer.current);
+      }
+    };
+  }, [executeProbe]);
+
+  return { status, retry };
+}
 
 export interface UseUploadState {
   upload: (

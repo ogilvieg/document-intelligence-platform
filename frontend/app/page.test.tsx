@@ -3,15 +3,22 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home from "./page";
-import { useDocumentUpload, useRAGAnalysis, useSampleAnalysis } from "@/lib/hooks";
+import {
+  useBackendHealth,
+  useDocumentUpload,
+  useRAGAnalysis,
+  useSampleAnalysis,
+} from "@/lib/hooks";
 import type { SampleAnalysisResponse } from "@/lib/api-client";
 
 vi.mock("@/lib/hooks", () => ({
+  useBackendHealth: vi.fn(),
   useDocumentUpload: vi.fn(),
   useRAGAnalysis: vi.fn(),
   useSampleAnalysis: vi.fn(),
 }));
 
+const mockedUseBackendHealth = vi.mocked(useBackendHealth);
 const mockedUseDocumentUpload = vi.mocked(useDocumentUpload);
 const mockedUseRAGAnalysis = vi.mocked(useRAGAnalysis);
 const mockedUseSampleAnalysis = vi.mocked(useSampleAnalysis);
@@ -42,6 +49,10 @@ const sampleResponse = {
 
 describe("Home", () => {
   beforeEach(() => {
+    mockedUseBackendHealth.mockReturnValue({
+      status: "connecting",
+      retry: vi.fn(),
+    });
     mockedUseDocumentUpload.mockReturnValue({
       upload: vi.fn(),
       isUploading: false,
@@ -63,6 +74,80 @@ describe("Home", () => {
       sampleResult: null,
       resetSample: vi.fn(),
     });
+  });
+
+  it("does not report online before a successful health signal", () => {
+    render(<Home />);
+
+    const status = screen.getByRole("status");
+    expect(status.textContent).toMatch(/connecting/i);
+    expect(status.textContent).not.toMatch(/online/i);
+  });
+
+  it("explains a delayed health probe as possible Render startup", () => {
+    mockedUseBackendHealth.mockReturnValue({
+      status: "delayed",
+      retry: vi.fn(),
+    });
+
+    render(<Home />);
+
+    const status = screen.getByRole("status");
+    expect(status.textContent).toMatch(/delayed/i);
+    expect(status.textContent).toMatch(/render/i);
+  });
+
+  it("lets a visitor retry an unavailable health probe", async () => {
+    const retry = vi.fn();
+    mockedUseBackendHealth.mockReturnValue({ status: "unavailable", retry });
+
+    render(<Home />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry api connection/i }),
+    );
+
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the ask-and-verify benefit after supporting details are dismissed", async () => {
+    render(<Home />);
+    const benefit = screen.getByRole("heading", {
+      level: 1,
+      name: /ask.*verify/i,
+    });
+
+    expect(screen.getByText(/01.*ingest/i)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: /dismiss introduction/i }),
+    );
+
+    expect(benefit.isConnected).toBe(true);
+  });
+
+  it("links technical evaluators to the project evidence", () => {
+    render(<Home />);
+
+    const expectedLinks = [
+      [
+        /source code/i,
+        "https://github.com/ogilvieg/document-intelligence-platform",
+      ],
+      [
+        /project brief/i,
+        "https://github.com/ogilvieg/document-intelligence-platform/blob/main/DEMO.md",
+      ],
+      [/api documentation/i, "https://docsage-api.phoenix7.dev/docs"],
+      [
+        /architecture/i,
+        "https://github.com/ogilvieg/document-intelligence-platform#architecture-overview",
+      ],
+    ] as const;
+
+    for (const [name, href] of expectedLinks) {
+      expect(screen.getByRole("link", { name }).getAttribute("href")).toBe(
+        href,
+      );
+    }
   });
 
   it("offers a zero-risk sample and renders it as synthetic representative data", async () => {

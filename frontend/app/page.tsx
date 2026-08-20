@@ -9,6 +9,7 @@ import {
   memo,
 } from "react";
 import {
+  useBackendHealth,
   useDocumentUpload,
   useRAGAnalysis,
   useSampleAnalysis,
@@ -18,6 +19,7 @@ import {
   formatCost,
   RAGAnalysisResponse,
 } from "@/lib/api-client";
+import { PROJECT_LINKS } from "@/lib/project-links";
 import { AnalysisComposer } from "./analysis-composer";
 
 // ─── Inline style tokens ──────────────────────────────────────────────────────
@@ -774,6 +776,8 @@ export const AnalysisPanel = memo(function AnalysisPanel({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Home() {
+  const { status: backendHealthStatus, retry: retryBackendHealth } =
+    useBackendHealth();
   const { upload, isUploading, uploadError, uploadedDocument, resetUpload } =
     useDocumentUpload();
   const {
@@ -869,7 +873,7 @@ export default function Home() {
         }}
       >
         <div>
-          <h1
+          <div
             style={{
               fontFamily: S.syne,
               fontSize: "22px",
@@ -879,7 +883,7 @@ export default function Home() {
             }}
           >
             DOC<span style={{ color: "var(--amber)" }}>SAGE</span>
-          </h1>
+          </div>
           <p
             style={{
               fontFamily: S.mono,
@@ -893,19 +897,62 @@ export default function Home() {
             Document Intelligence
           </p>
         </div>
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "16px",
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <span
+            role="status"
+            aria-live="polite"
             style={{
               fontFamily: S.mono,
               fontSize: "10px",
-              color: "var(--green)",
-              border: "1px solid rgba(45,106,79,0.3)",
+              color:
+                backendHealthStatus === "online"
+                  ? "var(--green)"
+                  : backendHealthStatus === "unavailable"
+                    ? "var(--red)"
+                    : "var(--amber)",
+              border: `1px solid ${
+                backendHealthStatus === "online"
+                  ? "var(--border-green)"
+                  : backendHealthStatus === "unavailable"
+                    ? "var(--border-red)"
+                    : "var(--border-amber)"
+              }`,
               padding: "3px 10px",
               letterSpacing: "0.12em",
             }}
           >
-            ● ONLINE
+            ● API {backendHealthStatus}
+            {backendHealthStatus === "delayed"
+              ? " — Render may be waking up"
+              : null}
           </span>
+          {backendHealthStatus === "unavailable" ? (
+            <button
+              type="button"
+              className="health-retry"
+              onClick={() => void retryBackendHealth()}
+              style={{
+                fontFamily: S.mono,
+                fontSize: "10px",
+                color: "var(--red)",
+                border: "1px solid var(--border-red)",
+                background: "transparent",
+                padding: "3px 10px",
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+              }}
+            >
+              Retry API connection
+            </button>
+          ) : null}
           <span
             style={{
               fontFamily: S.mono,
@@ -923,6 +970,49 @@ export default function Home() {
       <div
         style={{ maxWidth: "860px", margin: "0 auto", padding: "52px 40px" }}
       >
+        <section
+          aria-labelledby="homepage-benefit"
+          style={{ marginBottom: "36px", maxWidth: "720px" }}
+        >
+          <p
+            style={{
+              fontFamily: S.mono,
+              fontSize: "10px",
+              color: "var(--amber)",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              marginBottom: "10px",
+            }}
+          >
+            Evidence-first document intelligence
+          </p>
+          <h1
+            id="homepage-benefit"
+            style={{
+              fontFamily: S.syne,
+              fontSize: "clamp(30px, 6vw, 52px)",
+              lineHeight: 1.08,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.02em",
+              marginBottom: "16px",
+            }}
+          >
+            Ask your documents. Verify every answer.
+          </h1>
+          <p
+            style={{
+              fontFamily: S.sans,
+              fontSize: "16px",
+              lineHeight: 1.7,
+              color: "var(--text-secondary)",
+              maxWidth: "660px",
+            }}
+          >
+            Turn a document into focused answers, then inspect the retrieved
+            passages and citations behind each conclusion.
+          </p>
+        </section>
+
         {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
         {showIntro && (
           <div
@@ -988,9 +1078,9 @@ export default function Home() {
 
             {/* 3-step flow */}
             <div
+              className="intro-steps"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
                 gap: "16px",
               }}
             >
@@ -1505,10 +1595,30 @@ export default function Home() {
             marginTop: "72px",
             paddingTop: "24px",
             borderTop: "1px solid var(--border)",
-            display: "flex",
-            justifyContent: "space-between",
+            display: "grid",
+            gap: "16px",
           }}
         >
+          <nav aria-label="Project resources" className="project-links">
+            {PROJECT_LINKS.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {link.label} ↗
+              </a>
+            ))}
+          </nav>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
           <p
             style={{
               fontFamily: S.mono,
@@ -1529,6 +1639,7 @@ export default function Home() {
           >
             docsage.phoenix7.dev
           </p>
+          </div>
         </footer>
       </div>
     </main>

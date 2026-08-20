@@ -126,14 +126,22 @@ export class SecureAPIClient {
   /**
    * Check backend health (no auth required)
    */
-  async checkHealth(): Promise<HealthResponse> {
-    const response = await fetch(`/api/proxy?endpoint=/health`);
+  async checkHealth(signal?: AbortSignal): Promise<HealthResponse> {
+    const response = await fetch(`/api/health`, {
+      cache: "no-store",
+      ...(signal ? { signal } : {}),
+    });
 
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const health = (await response.json()) as HealthResponse;
+    if (health.status !== "healthy") {
+      throw new Error("Invalid health response");
+    }
+
+    return health;
   }
 
   /**
