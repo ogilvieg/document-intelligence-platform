@@ -1,6 +1,6 @@
 # Homepage Trust and Portfolio Signals - Implementation Plan
 
-Status: In progress
+Status: Source implementation complete; deployment closeout pending
 Date: 2026-08-20
 Issue: https://github.com/ogilvieg/document-intelligence-platform/issues/8
 
@@ -42,6 +42,10 @@ evidence-backed.
   confirms the benefit-first desktop layout and a 390 px layout with
   `scrollWidth = clientWidth = 387`, stacked supporting steps, and four project
   links. The 1200 x 630 Open Graph PNG was rendered and visually inspected.
+- Commit `92dfb44` deployed successfully to a Vercel Preview environment, but
+  the preview redirects unauthenticated visitors and crawlers to Vercel login.
+  Public preview metadata, link, and social-card checks therefore remain a
+  deployment closeout gate rather than being inferred from the protected page.
 
 ## Confirmed Decisions
 
@@ -71,6 +75,9 @@ evidence-backed.
 - Open question: production social-crawler rendering and all external targets
   must be rechecked after deployment because source tests cannot prove remote
   availability or crawler behavior.
+- Open question: the successful branch preview is protected by Vercel
+  authentication. T010 requires either authorized preview access or promotion
+  to a public environment; neither is implied by source implementation.
 
 ## Requirements
 
