@@ -342,6 +342,80 @@ def test_analyze_rag_with_document_filter(
         # Verify retrieval was called with filters
         call_args = mock_retrieval_service.retrieve_chunks.call_args
         assert call_args[1]['filters'] is not None
+        assert call_args[1]['fallback_to_scoped_best'] is False
+
+
+def test_analyze_rag_enables_fallback_for_one_selected_document(
+    sample_retrieval_metadata,
+    sample_analysis_output,
+    sample_citations,
+):
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        mock_retrieval_service.retrieve_chunks = AsyncMock(
+            return_value=sample_retrieval_metadata
+        )
+        mock_llm_service.analyze_with_chunks.return_value = (
+            sample_analysis_output,
+            sample_citations,
+            {
+                "model": "gpt-4",
+                "latency_ms": 1000,
+                "prompt_tokens": 400,
+                "completion_tokens": 100,
+                "total_tokens": 500,
+            },
+        )
+        mock_llm_service.estimate_cost.return_value = 0.015
+
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "Assess this resume", "document_ids": [str(uuid4())]},
+        )
+
+    assert response.status_code == 200
+    assert (
+        mock_retrieval_service.retrieve_chunks.call_args.kwargs[
+            "fallback_to_scoped_best"
+        ]
+        is True
+    )
+
+
+def test_analyze_rag_exposes_retrieval_fallback_metadata(
+    sample_retrieval_metadata,
+    sample_analysis_output,
+    sample_citations,
+):
+    sample_retrieval_metadata.similarity_threshold_used = 0.0
+    sample_retrieval_metadata.threshold_fallback_used = True
+
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        mock_retrieval_service.retrieve_chunks = AsyncMock(
+            return_value=sample_retrieval_metadata
+        )
+        mock_llm_service.analyze_with_chunks.return_value = (
+            sample_analysis_output,
+            sample_citations,
+            {
+                "model": "gpt-4",
+                "latency_ms": 1000,
+                "prompt_tokens": 400,
+                "completion_tokens": 100,
+                "total_tokens": 500,
+            },
+        )
+        mock_llm_service.estimate_cost.return_value = 0.015
+
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "Assess this resume", "document_ids": [str(uuid4())]},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["retrieval_metadata"]["threshold_fallback_used"] is True
+    assert response.json()["retrieval_metadata"]["similarity_threshold_used"] == 0.0
 
 
 def test_analyze_rag_with_doc_type_filter(
@@ -393,6 +467,30 @@ def test_analyze_rag_no_chunks_found():
         
         assert response.status_code == 404
         assert "No relevant chunks found" in response.json()["detail"]
+
+
+def test_analyze_rag_scoped_empty_document_requires_reupload():
+    empty_metadata = RetrievalMetadata(
+        chunks_retrieved=[],
+        query="resume assessment",
+        query_embedding_model="text-embedding-3-small",
+        retrieval_timestamp=datetime.utcnow(),
+        filters_applied=SearchFilters(document_ids=[uuid4()]),
+        similarity_threshold_used=0.0,
+        threshold_fallback_used=True,
+    )
+
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        mock_retrieval_service.retrieve_chunks = AsyncMock(return_value=empty_metadata)
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "resume assessment", "document_ids": [str(uuid4())]},
+        )
+
+    assert response.status_code == 409
+    assert "upload" in response.json()["detail"].lower()
+    mock_llm_service.analyze_with_chunks.assert_not_called()
 
 
 def test_analyze_rag_handles_errors():

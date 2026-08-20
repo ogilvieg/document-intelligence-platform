@@ -40,6 +40,17 @@ retrieval_service = RetrievalService(embedding_service=embedding_service)
 # the Supabase client (or asyncpg pool) at import time before env vars load.
 
 
+async def _delete_incomplete_document(db, document_id: UUID) -> None:
+    try:
+        await db.delete_document(document_id)
+    except Exception as cleanup_error:
+        logger.error(
+            "incomplete_document_cleanup_failed",
+            document_id=str(document_id),
+            error=str(cleanup_error),
+        )
+
+
 @router.get("/sample-analysis", dependencies=[Depends(verify_api_key)])
 async def get_sample_analysis():
     """Return immutable synthetic analysis without invoking the RAG pipeline."""
@@ -118,7 +129,8 @@ async def upload_document(
         )
         
         # Store document in database
-        stored_doc = await get_db_service().create_document(document_create)
+        db = get_db_service()
+        stored_doc = await db.create_document(document_create)
         document_id = stored_doc.id  # Use the ID from the created document
         logger.info("document_stored_in_db", document_id=str(document_id))
         
@@ -129,15 +141,27 @@ async def upload_document(
             doc_type=doc_type.value,  # Convert enum to string
             document_metadata=result.get('metadata', {})
         )
+        if chunking_result['total_chunks'] == 0:
+            await _delete_incomplete_document(db, document_id)
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "No searchable text was found in this document. "
+                    "Please upload a text-based file."
+                ),
+            )
         
         # Automatically generate embeddings for the chunks
         logger.info("auto_generating_embeddings", document_id=str(document_id))
         try:
             # Wait for pool if still connecting (background init race condition)
-            db = get_db_service()
             if hasattr(db, "wait_until_ready"):
                 await db.wait_until_ready()
             embeddings = await embedding_service.embed_document_chunks(document_id)
+            if len(embeddings) != chunking_result['total_chunks']:
+                raise RuntimeError(
+                    "Embedding count does not match the persisted chunk count."
+                )
             logger.info(
                 "embeddings_generated",
                 document_id=str(document_id),
@@ -149,7 +173,11 @@ async def upload_document(
                 document_id=str(document_id),
                 error=str(e)
             )
-            # Don't fail the upload if embeddings fail - they can be generated later
+            await _delete_incomplete_document(db, document_id)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Document processing did not complete. Please retry the upload."
+            )
         
         # Prepare response
         response = DocumentResponse(
@@ -170,6 +198,10 @@ async def upload_document(
                     'average_chunk_size': chunking_result['average_chunk_size'],
                     'chunk_size_config': chunking_result['chunk_size_config'],
                     'chunk_overlap_config': chunking_result['chunk_overlap_config']
+                },
+                'embeddings': {
+                    'status': 'ready',
+                    'total_embeddings': len(embeddings)
                 }
             }
         )
@@ -185,6 +217,8 @@ async def upload_document(
         
         return response
         
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.error("document_upload_validation_failed", error=str(e))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -520,11 +554,22 @@ async def analyze_with_rag(request: RAGAnalysisRequest):
             query=request.query,
             filters=filters,
             top_k=request.top_k,
-            similarity_threshold=request.similarity_threshold
+            similarity_threshold=request.similarity_threshold,
+            fallback_to_scoped_best=bool(
+                request.document_ids and len(request.document_ids) == 1
+            ),
         )
         
         if not retrieval_metadata.chunks_retrieved:
             logger.warning("no_chunks_retrieved", query=request.query)
+            if request.document_ids and len(request.document_ids) == 1:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "This document is not ready for analysis. "
+                        "Please upload it again."
+                    ),
+                )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No relevant chunks found. Try lowering similarity_threshold or check if documents are embedded."
@@ -582,7 +627,9 @@ async def analyze_with_rag(request: RAGAnalysisRequest):
                 "chunks_retrieved": len(retrieval_metadata.chunks_retrieved),
                 "query_embedding_model": retrieval_metadata.query_embedding_model,
                 "retrieval_timestamp": retrieval_metadata.retrieval_timestamp.isoformat(),
-                "filters_applied": retrieval_metadata.filters_applied.model_dump() if retrieval_metadata.filters_applied else None
+                "filters_applied": retrieval_metadata.filters_applied.model_dump() if retrieval_metadata.filters_applied else None,
+                "similarity_threshold_used": retrieval_metadata.similarity_threshold_used,
+                "threshold_fallback_used": retrieval_metadata.threshold_fallback_used,
             },
             "llm_metadata": {
                 "model": llm_metadata['model'],
