@@ -91,9 +91,9 @@ export class SecureAPIClient {
         query,
         document_ids: options?.document_ids,
         doc_type: options?.doc_type,
-        top_k: options?.top_k || 5,
-        similarity_threshold: options?.similarity_threshold || 0.3, // Lowered from 0.5 for better recall
-        temperature: options?.temperature || 0.7,
+        top_k: options?.top_k ?? 5,
+        similarity_threshold: options?.similarity_threshold ?? 0.3,
+        temperature: options?.temperature ?? 0.7,
       }),
     });
 

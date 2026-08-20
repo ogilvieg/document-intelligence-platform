@@ -262,12 +262,27 @@ def test_analyze_rag_endpoint(
         # Verify retrieval metadata
         assert data["retrieval_metadata"]["chunks_retrieved"] == 3
         assert data["retrieval_metadata"]["query_embedding_model"] == "text-embedding-3-small"
+        assert "retrieval_timestamp" in data["retrieval_metadata"]
+        assert "filters_applied" in data["retrieval_metadata"]
+
+        # Verify retrieved chunk contract
+        assert len(data["retrieved_chunks"]) == 3
+        retrieved_chunk = data["retrieved_chunks"][0]
+        assert "chunk_id" in retrieved_chunk
+        assert "document_id" in retrieved_chunk
+        assert "chunk_index" in retrieved_chunk
+        assert "similarity_score" in retrieved_chunk
         
         # Verify LLM metadata
         assert data["llm_metadata"]["model"] == "gpt-4-turbo-preview"
         assert data["llm_metadata"]["latency_ms"] == 1200
+        assert data["llm_metadata"]["temperature"] == 0.7
+        assert data["llm_metadata"]["prompt_tokens"] == 500
+        assert data["llm_metadata"]["completion_tokens"] == 150
         assert data["llm_metadata"]["total_tokens"] == 650
         assert data["llm_metadata"]["cost_usd"] == 0.0195
+        assert data["cost"] == 0.0195
+        assert "created_at" in data
 
 
 def test_analyze_rag_with_document_filter(
@@ -371,6 +386,56 @@ def test_analyze_rag_handles_errors():
         assert "RAG analysis failed" in response.json()["detail"]
 
 
+def test_analyze_rag_rejects_whitespace_query_before_services():
+    """Whitespace-only queries fail validation without paid external work."""
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "   \n\t  "}
+        )
+
+        assert response.status_code == 422
+        mock_retrieval_service.retrieve_chunks.assert_not_called()
+        mock_llm_service.analyze_with_chunks.assert_not_called()
+
+
+def test_analyze_rag_rejects_oversized_query_before_services():
+    """Queries over the documented cap fail before paid external work."""
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "x" * 2001}
+        )
+
+        assert response.status_code == 422
+        mock_retrieval_service.retrieve_chunks.assert_not_called()
+        mock_llm_service.analyze_with_chunks.assert_not_called()
+
+
+@pytest.mark.parametrize("invalid_option", [
+    {"top_k": 0},
+    {"top_k": 21},
+    {"similarity_threshold": -0.1},
+    {"similarity_threshold": 1.1},
+    {"temperature": -0.1},
+    {"temperature": 1.1},
+])
+def test_analyze_rag_rejects_out_of_range_options_before_services(invalid_option):
+    """Invalid retrieval and generation options fail before external work."""
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "Inspect this document", **invalid_option}
+        )
+
+        assert response.status_code == 422
+        mock_retrieval_service.retrieve_chunks.assert_not_called()
+        mock_llm_service.analyze_with_chunks.assert_not_called()
+
+
 def test_analyze_rag_custom_parameters(
     sample_retrieval_metadata,
     sample_analysis_output,
@@ -407,6 +472,41 @@ def test_analyze_rag_custom_parameters(
         
         llm_call = mock_llm_service.analyze_with_chunks.call_args
         assert llm_call[1]['temperature'] == 0.3
+
+
+def test_analyze_rag_uses_normalized_query_and_zero_temperature(
+    sample_retrieval_metadata,
+    sample_analysis_output,
+    sample_citations
+):
+    """The normalized query and explicit zero temperature survive the route."""
+    with patch('app.api.routes.retrieval_service') as mock_retrieval_service, \
+         patch('app.api.routes.llm_service') as mock_llm_service:
+        mock_retrieval_service.retrieve_chunks = AsyncMock(return_value=sample_retrieval_metadata)
+        mock_llm_service.analyze_with_chunks.return_value = (
+            sample_analysis_output,
+            sample_citations,
+            {
+                "model": "gpt-4",
+                "latency_ms": 1000,
+                "prompt_tokens": 400,
+                "completion_tokens": 100,
+                "total_tokens": 500
+            }
+        )
+        mock_llm_service.estimate_cost.return_value = 0.015
+
+        response = client.post(
+            "/api/v1/analyze-rag",
+            json={"query": "  Inspect this document  ", "temperature": 0.0}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["query"] == "Inspect this document"
+        assert response.json()["llm_metadata"]["temperature"] == 0.0
+        assert mock_retrieval_service.retrieve_chunks.call_args.kwargs["query"] == "Inspect this document"
+        assert mock_llm_service.analyze_with_chunks.call_args.kwargs["query"] == "Inspect this document"
+        assert mock_llm_service.analyze_with_chunks.call_args.kwargs["temperature"] == 0.0
 
 
 def test_rag_endpoint_traceability(

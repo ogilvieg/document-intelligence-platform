@@ -122,6 +122,27 @@ async def test_retrieve_chunks_basic(mock_embedding_service, sample_retrieved_ch
 
 
 @pytest.mark.asyncio
+async def test_retrieve_chunks_preserves_explicit_zero_threshold(mock_embedding_service):
+    """An explicit zero threshold is not replaced by the service default."""
+    retrieval_service = RetrievalService(
+        embedding_service=mock_embedding_service,
+        similarity_threshold=0.3
+    )
+
+    with patch('app.services.retrieval.get_db_service') as mock_get_db:
+        mock_db = AsyncMock()
+        mock_db.search_similar_chunks.return_value = []
+        mock_get_db.return_value = mock_db
+
+        await retrieval_service.retrieve_chunks(
+            query="broad recall query",
+            similarity_threshold=0.0
+        )
+
+        assert mock_db.search_similar_chunks.call_args.kwargs["similarity_threshold"] == 0.0
+
+
+@pytest.mark.asyncio
 async def test_retrieve_chunks_with_filters(mock_embedding_service, sample_retrieved_chunks):
     """Test retrieval with filters."""
     retrieval_service = RetrievalService(embedding_service=mock_embedding_service)
