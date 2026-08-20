@@ -60,20 +60,22 @@ export interface RetrievedChunk {
 export interface RetrievalMetadata {
   chunks_retrieved: number;
   query_embedding_model: string;
-  timestamp: string;
-  filters: {
+  retrieval_timestamp: string;
+  filters_applied: {
     doc_type?: string | null;
     document_ids?: string[] | null;
     metadata_filters?: Record<string, any> | null;
-  };
+  } | null;
 }
 
 export interface LLMMetadata {
   model: string;
   temperature: number;
+  latency_ms: number;
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  cost_usd: number;
 }
 
 export interface AnalysisResponse {
@@ -94,6 +96,7 @@ export interface RAGAnalysisResponse {
   llm_metadata: LLMMetadata;
   cost: number;
   retrieved_chunks?: RetrievedChunk[];
+  created_at: string;
 }
 
 export interface AnalysisRequest {
@@ -207,9 +210,9 @@ export class APIClient {
         query,
         document_ids: options?.document_ids,
         doc_type: options?.doc_type,
-        top_k: options?.top_k || 5,
-        similarity_threshold: options?.similarity_threshold || 0.3,
-        temperature: options?.temperature || 0.7,
+        top_k: options?.top_k ?? 5,
+        similarity_threshold: options?.similarity_threshold ?? 0.3,
+        temperature: options?.temperature ?? 0.7,
       }),
     });
 

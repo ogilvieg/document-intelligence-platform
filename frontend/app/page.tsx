@@ -14,6 +14,7 @@ import {
   formatCost,
   RAGAnalysisResponse,
 } from "@/lib/api-client";
+import { AnalysisComposer } from "./analysis-composer";
 
 // ─── Inline style tokens ──────────────────────────────────────────────────────
 const S = {
@@ -146,7 +147,7 @@ function SignedList({
 }
 
 // ─── Analysis Panel (memoised — doesn't re-render during upload interactions) ─
-const AnalysisPanel = memo(function AnalysisPanel({
+export const AnalysisPanel = memo(function AnalysisPanel({
   analysisResult,
 }: {
   analysisResult: RAGAnalysisResponse;
@@ -199,6 +200,31 @@ const AnalysisPanel = memo(function AnalysisPanel({
           {analysisResult.llm_metadata.total_tokens.toLocaleString()} tokens ·{" "}
           {formatCost(analysisResult.cost)}
         </span>
+      </div>
+
+      <div
+        style={{
+          marginBottom: "14px",
+          borderLeft: "2px solid var(--amber)",
+          padding: "12px 16px",
+          backgroundColor: "var(--amber-dim)",
+        }}
+      >
+        <p
+          style={{
+            fontFamily: S.mono,
+            fontSize: "9px",
+            color: "var(--text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.15em",
+            marginBottom: "5px",
+          }}
+        >
+          Completed goal
+        </p>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+          {analysisResult.query}
+        </p>
       </div>
 
       {/* Retrieval Pipeline ─── */}
@@ -295,6 +321,19 @@ const AnalysisPanel = memo(function AnalysisPanel({
                   "Prompt / Completion",
                   `${analysisResult.llm_metadata.prompt_tokens.toLocaleString()} / ${analysisResult.llm_metadata.completion_tokens.toLocaleString()} tokens`,
                 ],
+                [
+                  "Retrieval timestamp",
+                  analysisResult.retrieval_metadata.retrieval_timestamp,
+                ],
+                [
+                  "Filters applied",
+                  JSON.stringify(
+                    analysisResult.retrieval_metadata.filters_applied,
+                  ),
+                ],
+                ["LLM latency", `${analysisResult.llm_metadata.latency_ms} ms`],
+                ["LLM cost", formatCost(analysisResult.llm_metadata.cost_usd)],
+                ["Created", analysisResult.created_at],
               ].map(([label, val]) => (
                 <div key={label}>
                   <p
@@ -795,17 +834,6 @@ export default function Home() {
     },
     [handleFileUpload],
   );
-
-  const handleAnalyze = async () => {
-    if (!uploadedDocument) return;
-    const query = `Analyze this ${uploadedDocument.type} document: ${uploadedDocument.title}. Provide a comprehensive assessment including overall fit, strengths, gaps, risk factors, and recommended focus areas.`;
-    await analyzeWithRAG(query, {
-      document_ids: [uploadedDocument.id],
-      top_k: 5,
-      similarity_threshold: 0.3,
-      temperature: 0.7,
-    });
-  };
 
   const handleReset = () => {
     resetUpload();
@@ -1360,86 +1388,18 @@ export default function Home() {
 
         {/* ── RUN ANALYSIS ───────────────────────────────────────────────── */}
         <section style={{ marginBottom: "40px" }}>
-          <button
-            onClick={handleAnalyze}
-            disabled={!uploadedDocument || isAnalyzing}
-            style={{
-              width: "100%",
-              padding: "16px 28px",
-              backgroundColor:
-                uploadedDocument && !isAnalyzing
-                  ? "var(--amber)"
-                  : "transparent",
-              border: `1px solid ${uploadedDocument && !isAnalyzing ? "var(--amber)" : "var(--border)"}`,
-              color:
-                uploadedDocument && !isAnalyzing
-                  ? "#f9f4e8"
-                  : "var(--text-dim)",
-              fontFamily: S.syne,
-              fontSize: "13px",
-              fontWeight: 800,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              cursor:
-                !uploadedDocument || isAnalyzing ? "not-allowed" : "pointer",
-              transition: "all 0.15s",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "14px",
-            }}
-          >
-            {isAnalyzing ? (
-              <>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: "11px",
-                    height: "11px",
-                    border: "2px solid var(--amber)",
-                    borderTopColor: "transparent",
-                    borderRadius: "50%",
-                    animation: "spin 0.7s linear infinite",
-                  }}
-                />
-                ANALYZING
-              </>
-            ) : (
-              <>
-                RUN ANALYSIS{" "}
-                <span
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 400,
-                    fontFamily: S.sans,
-                  }}
-                >
-                  →
-                </span>
-              </>
-            )}
-          </button>
-
-          {analysisError && (
-            <div
-              style={{
-                marginTop: "10px",
-                padding: "12px 16px",
-                backgroundColor: "var(--red-dim)",
-                border: "1px solid rgba(155,34,38,0.28)",
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: S.mono,
-                  fontSize: "11px",
-                  color: "var(--red)",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                ERR: {analysisError}
-              </p>
-            </div>
+          {uploadedDocument ? (
+            <AnalysisComposer
+              key={uploadedDocument.id}
+              documentId={uploadedDocument.id}
+              isAnalyzing={isAnalyzing}
+              analysisError={analysisError}
+              onAnalyze={analyzeWithRAG}
+            />
+          ) : (
+            <button className="analysis-submit" disabled>
+              Run analysis
+            </button>
           )}
         </section>
 

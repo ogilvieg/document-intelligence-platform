@@ -76,8 +76,12 @@ class RetrievalService:
         Returns:
             RetrievalMetadata with chunks and full traceability info
         """
-        top_k = top_k or self.default_top_k
-        similarity_threshold = similarity_threshold or self.similarity_threshold
+        top_k = self.default_top_k if top_k is None else top_k
+        similarity_threshold = (
+            self.similarity_threshold
+            if similarity_threshold is None
+            else similarity_threshold
+        )
         retrieval_start = datetime.utcnow()
         
         logger.info(

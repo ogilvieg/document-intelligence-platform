@@ -452,16 +452,26 @@ async def search_chunks(
         )
 
 
-from pydantic import BaseModel as PydanticBaseModel, Field as PydanticField
+from pydantic import (
+    BaseModel as PydanticBaseModel,
+    Field as PydanticField,
+    field_validator,
+)
 
 class RAGAnalysisRequest(PydanticBaseModel):
     """Request model for RAG analysis."""
-    query: str
+    query: str = PydanticField(..., min_length=1, max_length=2000)
     document_ids: Optional[List[UUID]] = None
     doc_type: Optional[str] = None
-    top_k: int = 5
-    similarity_threshold: float = 0.3  # Lowered from 0.5 for better recall
-    temperature: float = 0.7
+    top_k: int = PydanticField(default=5, ge=1, le=20)
+    similarity_threshold: float = PydanticField(default=0.3, ge=0.0, le=1.0)
+    temperature: float = PydanticField(default=0.7, ge=0.0, le=1.0)
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def normalize_query(cls, value):
+        """Trim query text before length validation and downstream use."""
+        return value.strip() if isinstance(value, str) else value
 
 
 @router.post("/analyze-rag", dependencies=[Depends(verify_api_key)])

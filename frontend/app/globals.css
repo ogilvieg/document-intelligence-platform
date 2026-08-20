@@ -163,3 +163,114 @@ body::after {
     box-shadow: 0 2px 12px 1px rgba(92, 61, 30, 0.12);
   }
 }
+
+.analysis-composer {
+  display: grid;
+  gap: 14px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.analysis-composer fieldset {
+  min-width: 0;
+  border: 0;
+}
+
+.analysis-composer legend,
+.analysis-goal-heading label {
+  margin-bottom: 8px;
+  font-family: var(--font-ibm-plex-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.analysis-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analysis-category-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.analysis-choice-grid button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font: 11px var(--font-ibm-plex-mono);
+  cursor: pointer;
+}
+
+.analysis-choice-grid button[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: var(--amber-dim);
+  color: var(--amber);
+}
+
+.analysis-choice-grid button:focus-visible,
+.analysis-goal-input:focus-visible,
+.analysis-submit:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.analysis-goal-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.analysis-goal-heading span,
+.analysis-selection-status {
+  font: 10px var(--font-ibm-plex-mono);
+  color: var(--text-muted);
+}
+
+.analysis-goal-input {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font: 13px/1.6 var(--font-ibm-plex-sans);
+}
+
+.analysis-submit {
+  width: 100%;
+  padding: 16px 28px;
+  border: 1px solid var(--amber);
+  background: var(--amber);
+  color: #f9f4e8;
+  font-family: var(--font-special-elite);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.analysis-submit:disabled {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .analysis-composer {
+    padding: 18px 14px;
+  }
+
+  .analysis-category-grid,
+  .analysis-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}

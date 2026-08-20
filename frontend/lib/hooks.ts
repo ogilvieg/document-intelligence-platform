@@ -2,7 +2,7 @@
  * React hooks for API operations with loading and error states
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   DocumentUploadResponse,
   AnalysisResponse,
@@ -138,6 +138,8 @@ export function useRAGAnalysis(): UseRAGAnalysisState {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] =
     useState<RAGAnalysisResponse | null>(null);
+  const activeRequestId = useRef(0);
+  const pendingRequestId = useRef<number | null>(null);
 
   const analyzeWithRAG = async (
     query: string,
@@ -149,24 +151,33 @@ export function useRAGAnalysis(): UseRAGAnalysisState {
       temperature?: number;
     }
   ) => {
+    if (pendingRequestId.current !== null) return null;
+    const requestId = ++activeRequestId.current;
+    pendingRequestId.current = requestId;
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
       const result = await apiClient.analyzeWithRAG(query, options);
-      setAnalysisResult(result);
+      if (activeRequestId.current === requestId) setAnalysisResult(result);
       return result;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "RAG analysis failed";
-      setAnalysisError(message);
+      if (activeRequestId.current === requestId) setAnalysisError(message);
       return null;
     } finally {
-      setIsAnalyzing(false);
+      if (activeRequestId.current === requestId) setIsAnalyzing(false);
+      if (pendingRequestId.current === requestId) {
+        pendingRequestId.current = null;
+      }
     }
   };
 
   const resetAnalysis = () => {
+    activeRequestId.current += 1;
+    pendingRequestId.current = null;
+    setIsAnalyzing(false);
     setAnalysisResult(null);
     setAnalysisError(null);
   };

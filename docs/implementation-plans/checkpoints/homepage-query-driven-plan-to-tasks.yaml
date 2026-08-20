@@ -1,0 +1,16 @@
+artifact: docs/implementation-plans/homepage-query-driven.md
+generated: 2026-08-20
+status: in_progress
+plan_items:
+  P0.1: [T001]
+  P0.2: [T002]
+  P1.1: [T003, T004, T005, T006]
+  P1.2: [T007, T008]
+  P2.1: [T009, T010]
+  P2.2: [T011, T012]
+  P2.3: [T013, T014]
+  P3.1: [T015, T016, T017]
+unmapped_plan_items: []
+task_count: 17
+completed_tasks: [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012, T013, T014, T015, T016]
+remaining_task_count: 1
