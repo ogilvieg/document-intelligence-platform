@@ -25,6 +25,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.retrieval import RetrievalService
 from app.services.database import get_db_service
 from app.middleware.auth import verify_api_key
+from app.fixtures.sample_analysis import SAMPLE_ANALYSIS
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -37,6 +38,12 @@ embedding_service = EmbeddingService()
 retrieval_service = RetrievalService(embedding_service=embedding_service)
 # db_service is resolved lazily via get_db_service() to avoid instantiating
 # the Supabase client (or asyncpg pool) at import time before env vars load.
+
+
+@router.get("/sample-analysis", dependencies=[Depends(verify_api_key)])
+async def get_sample_analysis():
+    """Return immutable synthetic analysis without invoking the RAG pipeline."""
+    return SAMPLE_ANALYSIS
 
 
 @router.post("/documents/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])

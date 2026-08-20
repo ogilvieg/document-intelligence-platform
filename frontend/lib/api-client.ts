@@ -99,6 +99,17 @@ export interface RAGAnalysisResponse {
   created_at: string;
 }
 
+export interface SampleAnalysisResponse {
+  sample: {
+    synthetic: true;
+    fixture_version: string;
+    title: string;
+    description: string;
+    metrics_are_representative: true;
+  };
+  analysis: RAGAnalysisResponse;
+}
+
 export interface AnalysisRequest {
   document_ids: string[];
   options?: Record<string, any>;

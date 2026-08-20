@@ -1,17 +1,19 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useRAGAnalysis } from "./hooks";
-import type { RAGAnalysisResponse } from "./api-client";
+import { useRAGAnalysis, useSampleAnalysis } from "./hooks";
+import type { RAGAnalysisResponse, SampleAnalysisResponse } from "./api-client";
 import { secureApiClient } from "./secure-api-client";
 
 vi.mock("./secure-api-client", () => ({
   secureApiClient: {
     analyzeWithRAG: vi.fn(),
+    getSampleAnalysis: vi.fn(),
   },
 }));
 
 const analyzeWithRAG = vi.mocked(secureApiClient.analyzeWithRAG);
+const getSampleAnalysis = vi.mocked(secureApiClient.getSampleAnalysis);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -85,5 +87,40 @@ describe("useRAGAnalysis", () => {
 
     expect(result.current.analysisResult?.query).toBe("Successful query");
     expect(result.current.analysisError).toBe("Repeat failed");
+  });
+});
+
+describe("useSampleAnalysis", () => {
+  beforeEach(() => getSampleAnalysis.mockReset());
+
+  it("reports a failed load and succeeds when retried", async () => {
+    const sample = { analysis: { query: "Sample query" } } as SampleAnalysisResponse;
+    getSampleAnalysis
+      .mockRejectedValueOnce(new Error("Backend is waking up"))
+      .mockResolvedValueOnce(sample);
+    const { result } = renderHook(() => useSampleAnalysis());
+
+    await act(async () => void (await result.current.loadSample()));
+    expect(result.current.sampleError).toBe("Backend is waking up");
+
+    await act(async () => void (await result.current.loadSample()));
+    expect(result.current.sampleResult).toBe(sample);
+    expect(result.current.sampleError).toBeNull();
+  });
+
+  it("ignores a late response after reset", async () => {
+    const pending = deferred<SampleAnalysisResponse>();
+    getSampleAnalysis.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useSampleAnalysis());
+
+    act(() => void result.current.loadSample());
+    act(() => result.current.resetSample());
+    await act(async () => {
+      pending.resolve({ analysis: { query: "Late" } } as SampleAnalysisResponse);
+      await pending.promise;
+    });
+
+    expect(result.current.sampleResult).toBeNull();
+    expect(result.current.isSampleLoading).toBe(false);
   });
 });
