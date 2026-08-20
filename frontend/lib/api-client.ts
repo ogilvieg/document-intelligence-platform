@@ -26,6 +26,10 @@ export interface DocumentUploadResponse {
       chunk_size_config: number;
       chunk_overlap_config: number;
     };
+    embeddings?: {
+      status: "ready";
+      total_embeddings: number;
+    };
   };
 }
 
@@ -66,6 +70,8 @@ export interface RetrievalMetadata {
     document_ids?: string[] | null;
     metadata_filters?: Record<string, any> | null;
   } | null;
+  similarity_threshold_used?: number | null;
+  threshold_fallback_used?: boolean;
 }
 
 export interface LLMMetadata {

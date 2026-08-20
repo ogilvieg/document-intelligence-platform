@@ -56,7 +56,8 @@ class RetrievalService:
         query: str,
         filters: Optional[SearchFilters] = None,
         top_k: Optional[int] = None,
-        similarity_threshold: Optional[float] = None
+        similarity_threshold: Optional[float] = None,
+        fallback_to_scoped_best: bool = False,
     ) -> RetrievalMetadata:
         """
         Retrieve relevant chunks for a query with full traceability.
@@ -72,6 +73,8 @@ class RetrievalService:
             filters: Optional filters (doc_type, document_ids, etc.)
             top_k: Number of chunks to retrieve (defaults to default_top_k)
             similarity_threshold: Minimum similarity (defaults to instance threshold)
+            fallback_to_scoped_best: Retry at zero only for one explicitly
+                selected document when the requested threshold returns nothing.
             
         Returns:
             RetrievalMetadata with chunks and full traceability info
@@ -105,6 +108,27 @@ class RetrievalService:
             top_k=top_k,
             similarity_threshold=similarity_threshold
         )
+        threshold_fallback_used = False
+        similarity_threshold_used = similarity_threshold
+        has_single_document_scope = bool(
+            filters
+            and filters.document_ids
+            and len(filters.document_ids) == 1
+        )
+        if (
+            not retrieved_chunks
+            and fallback_to_scoped_best
+            and has_single_document_scope
+            and similarity_threshold > 0.0
+        ):
+            threshold_fallback_used = True
+            similarity_threshold_used = 0.0
+            retrieved_chunks = await db.search_similar_chunks(
+                query_embedding=query_embedding,
+                filters=filters,
+                top_k=top_k,
+                similarity_threshold=similarity_threshold_used,
+            )
         
         # Step 3: Log retrieval results
         chunk_ids = [str(rc.chunk.id) for rc in retrieved_chunks]
@@ -127,7 +151,9 @@ class RetrievalService:
             query_embedding_model=self.embedding_service.model_name,
             retrieval_timestamp=retrieval_start,
             filters_applied=filters,
-            total_chunks_available=None  # Could be added with a count query
+            total_chunks_available=None,  # Could be added with a count query
+            similarity_threshold_used=similarity_threshold_used,
+            threshold_fallback_used=threshold_fallback_used,
         )
         
         # Log detailed traceability info

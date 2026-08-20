@@ -143,6 +143,37 @@ async def test_retrieve_chunks_preserves_explicit_zero_threshold(mock_embedding_
 
 
 @pytest.mark.asyncio
+async def test_single_document_retrieval_falls_back_to_best_scoped_chunks(
+    mock_embedding_service,
+    sample_retrieved_chunks,
+):
+    retrieval_service = RetrievalService(embedding_service=mock_embedding_service)
+    filters = SearchFilters(document_ids=[uuid4()])
+
+    with patch('app.services.retrieval.get_db_service') as mock_get_db:
+        mock_db = AsyncMock()
+        mock_db.search_similar_chunks.side_effect = [[], sample_retrieved_chunks]
+        mock_get_db.return_value = mock_db
+
+        result = await retrieval_service.retrieve_chunks(
+            query="broad resume assessment",
+            filters=filters,
+            similarity_threshold=0.3,
+            fallback_to_scoped_best=True,
+        )
+
+    thresholds = [
+        call.kwargs["similarity_threshold"]
+        for call in mock_db.search_similar_chunks.await_args_list
+    ]
+    assert thresholds == [0.3, 0.0]
+    mock_embedding_service.generate_embedding.assert_awaited_once()
+    assert result.chunks_retrieved == sample_retrieved_chunks
+    assert result.threshold_fallback_used is True
+    assert result.similarity_threshold_used == 0.0
+
+
+@pytest.mark.asyncio
 async def test_retrieve_chunks_with_filters(mock_embedding_service, sample_retrieved_chunks):
     """Test retrieval with filters."""
     retrieval_service = RetrievalService(embedding_service=mock_embedding_service)

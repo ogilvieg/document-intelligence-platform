@@ -120,6 +120,8 @@ class RetrievalMetadata(BaseModel):
     retrieval_timestamp: datetime
     filters_applied: Optional[SearchFilters] = None
     total_chunks_available: Optional[int] = None
+    similarity_threshold_used: Optional[float] = None
+    threshold_fallback_used: bool = False
 
 
 # ============= Analysis Models =============
