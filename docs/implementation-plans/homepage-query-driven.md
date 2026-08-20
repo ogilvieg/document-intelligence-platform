@@ -259,7 +259,7 @@ semantic category + prompt catalog + editable goal
 
 - [x] T015 [Plan:P3.1] Run the complete focused frontend and backend test suites, TypeScript checking, changed-surface lint, and the production frontend build; record the pre-existing full-lint failures separately.
 - [x] T016 [Plan:P3.1] Verify keyboard operation and the new #6 controls at 390 px and desktop widths, then smoke-test normal, retry, repeat, and explicit-zero requests against the deployed contract.
-- [ ] T017 [Plan:P3.1] Update issue #6 and the delivery PR with validation evidence, deployment/rollback notes, residual risks linked to #7/#9, and the next actionable homepage issue.
+- [x] T017 [Plan:P3.1] Update issue #6 and the delivery PR with validation evidence, deployment/rollback notes, residual risks linked to #7/#9, and the next actionable homepage issue.
 
 ## Commit Checkpoints
 
@@ -305,10 +305,10 @@ semantic category + prompt catalog + editable goal
 
 ## Definition of Done
 
-- [ ] Every requirement has passing validation evidence.
-- [ ] Every plan item has one primary module or work package.
-- [ ] Module boundaries, interfaces, dependencies, and integration checks are explicit.
-- [ ] Applicable implementation units are committed at coherent, validated checkpoints.
-- [ ] Both traceability checkpoints validate with no unmapped IDs.
-- [ ] No production retrieval default is retuned and no stored data is migrated.
-- [ ] Issue #6 records validation evidence, rollback guidance, residual risks, and the next homepage ticket.
+- [x] Every requirement has passing validation evidence.
+- [x] Every plan item has one primary module or work package.
+- [x] Module boundaries, interfaces, dependencies, and integration checks are explicit.
+- [x] Applicable implementation units are committed at coherent, validated checkpoints.
+- [x] Both traceability checkpoints validate with no unmapped IDs.
+- [x] No production retrieval default is retuned and no stored data is migrated.
+- [x] Issue #6 records validation evidence, rollback guidance, residual risks, and the next homepage ticket.
