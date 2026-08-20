@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Special_Elite, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { DOCSAGE_METADATA } from "@/lib/site-metadata";
 import "./globals.css";
 
 const specialElite = Special_Elite({
@@ -20,11 +20,7 @@ const ibmPlexSans = IBM_Plex_Sans({
   weight: ["400", "500"],
 });
 
-export const metadata: Metadata = {
-  title: "DocSage — Document Intelligence",
-  description:
-    "AI-powered document analysis with RAG and full retrieval traceability",
-};
+export const metadata = DOCSAGE_METADATA;
 
 export default function RootLayout({
   children,
