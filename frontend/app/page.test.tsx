@@ -231,6 +231,74 @@ describe("Home", () => {
     expect(upload).toHaveBeenCalledOnce();
   });
 
+  it("announces the combined upload and indexing operation", () => {
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: true,
+      uploadError: null,
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /uploading.*indexing/i.test(status.textContent ?? "")),
+    ).toBe(true);
+  });
+
+  it("exposes upload failures as an alert", () => {
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: false,
+      uploadError: "File could not be indexed",
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(screen.getByRole("alert").textContent).toContain("File could not be indexed");
+  });
+
+  it("announces analysis progress for the indexed document", () => {
+    mockedUseRAGAnalysis.mockReturnValue({
+      analyzeWithRAG: vi.fn(),
+      isAnalyzing: true,
+      analysisError: null,
+      analysisResult: null,
+      resetAnalysis: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /analyzing/i.test(status.textContent ?? "")),
+    ).toBe(true);
+  });
+
+  it("announces analysis completion with the analyzed goal", () => {
+    mockedUseRAGAnalysis.mockReturnValue({
+      analyzeWithRAG: vi.fn(),
+      isAnalyzing: false,
+      analysisError: null,
+      analysisResult: sampleResponse.analysis,
+      resetAnalysis: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some(
+          (status) =>
+            /analysis complete/i.test(status.textContent ?? "") &&
+            (status.textContent ?? "").includes(sampleResponse.analysis.query),
+        ),
+    ).toBe(true);
+  });
+
   it("clears sample state before a dropped file is uploaded", async () => {
     const resetSample = vi.fn();
     const upload = vi.fn().mockResolvedValue(null);
@@ -266,6 +334,8 @@ describe("Home", () => {
     const { container } = render(<Home />);
 
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: /ingest/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: /analysis/i })).toBeTruthy();
     for (const selector of [
       ".site-header",
       ".page-shell",
@@ -307,6 +377,14 @@ describe("Home", () => {
     });
 
     render(<Home />);
+    expect(
+      screen.getByRole("heading", { level: 2, name: /indexed/i }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /example.*indexed/i.test(status.textContent ?? "")),
+    ).toBe(true);
     const clear = screen.getByRole("button", {
       name: /clear indexed document/i,
     });

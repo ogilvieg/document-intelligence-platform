@@ -57,7 +57,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
       >
         {n}
       </span>
-      <span
+      <h2
         style={{
           fontFamily: S.syne,
           fontSize: "12px",
@@ -68,7 +68,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
         }}
       >
         {label}
-      </span>
+      </h2>
       <div style={rule} />
     </div>
   );
@@ -181,7 +181,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
         >
           03
         </span>
-        <span
+        <h2
           style={{
             fontFamily: S.syne,
             fontSize: "12px",
@@ -192,7 +192,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           }}
         >
           Analysis
-        </span>
+        </h2>
         <div style={rule} />
         <span
           style={{
@@ -250,7 +250,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             marginBottom: "18px",
           }}
         >
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -260,7 +260,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Retrieval Pipeline
-          </p>
+          </h3>
           <button
             type="button"
             className="compact-action retrieval-toggle"
@@ -380,7 +380,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
       {analysisResult.retrieved_chunks &&
       analysisResult.retrieved_chunks.length > 0 ? (
         <div style={{ marginBottom: "14px" }}>
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -391,7 +391,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Retrieved Chunks ({analysisResult.retrieved_chunks.length})
-          </p>
+          </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {analysisResult.retrieved_chunks.map((chunk, idx) => (
               <div
@@ -513,7 +513,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           padding: "22px 24px",
         }}
       >
-        <p
+        <h3
           style={{
             fontFamily: S.mono,
             fontSize: "9px",
@@ -524,7 +524,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           }}
         >
           Overall Assessment
-        </p>
+        </h3>
         <p
           style={{
             fontSize: "14px",
@@ -596,7 +596,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -607,7 +607,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Strengths
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.strengths}
               sigil="+"
@@ -623,7 +623,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -634,7 +634,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Gaps
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.gaps}
               sigil="~"
@@ -650,7 +650,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -661,7 +661,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Risk Factors
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.risk_factors}
               sigil="!"
@@ -677,7 +677,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -688,7 +688,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Focus Areas
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.recommended_focus}
               sigil="→"
@@ -707,7 +707,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             padding: "20px 24px",
           }}
         >
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -718,7 +718,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Source Citations ({analysisResult.citations.length})
-          </p>
+          </h3>
           <div
             className="citation-list"
             style={{ display: "flex", flexDirection: "column", gap: "12px" }}
@@ -866,6 +866,16 @@ export default function Home() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const workflowStatus = isUploading
+    ? "Uploading and indexing document."
+    : isAnalyzing
+      ? "Analyzing the indexed document."
+    : analysisResult
+      ? `Analysis complete for: ${analysisResult.query}`
+    : uploadedDocument
+      ? `${uploadedDocument.title} indexed and ready for analysis.`
+      : null;
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "var(--bg-base)" }}>
@@ -977,6 +987,11 @@ export default function Home() {
         className="page-shell"
         style={{ maxWidth: "860px", margin: "0 auto" }}
       >
+        {workflowStatus ? (
+          <p className="sr-only workflow-status" role="status" aria-live="polite">
+            {workflowStatus}
+          </p>
+        ) : null}
         <section
           aria-labelledby="homepage-benefit"
           style={{ marginBottom: "36px", maxWidth: "720px" }}
@@ -1345,6 +1360,7 @@ export default function Home() {
           {/* Upload error */}
           {uploadError && (
             <div
+              role="alert"
               style={{
                 marginTop: "10px",
                 padding: "12px 16px",
@@ -1392,7 +1408,7 @@ export default function Home() {
               >
                 02
               </span>
-              <span
+              <h2
                 style={{
                   fontFamily: S.syne,
                   fontSize: "12px",
@@ -1403,7 +1419,7 @@ export default function Home() {
                 }}
               >
                 Indexed
-              </span>
+              </h2>
               <div style={rule} />
               <button
                 type="button"

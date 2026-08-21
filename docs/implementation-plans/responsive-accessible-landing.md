@@ -182,9 +182,9 @@ and live-region state; browser inspection validates layout and visual states.
 
 ### Phase 2 Tasks
 
-- [ ] T005 [Plan:P2.1] Add a failing level/name/DOM-order test for the explicit h1/h2/h3 outline in empty and populated result states; implement native headings and verify green.
-- [ ] T006 [Plan:P2.2] Add failing combined upload-and-index/indexed and upload-error announcement tests; implement the smallest truthful live status/alert behavior and verify green.
-- [ ] T007 [Plan:P2.2] Add failing analyzing/completion and analysis-error announcement tests; integrate composer/result states without duplicate announcements and verify green.
+- [x] T005 [Plan:P2.1] Add a failing level/name/DOM-order test for the explicit h1/h2/h3 outline in empty and populated result states; implement native headings and verify green.
+- [x] T006 [Plan:P2.2] Add failing combined upload-and-index/indexed and upload-error announcement tests; implement the smallest truthful live status/alert behavior and verify green.
+- [x] T007 [Plan:P2.2] Add failing analyzing/completion and analysis-error announcement tests; integrate composer/result states without duplicate announcements and verify green.
 
 ### Phase 3 Tasks
 

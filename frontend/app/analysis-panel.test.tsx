@@ -57,6 +57,24 @@ const response: RAGAnalysisResponse = {
 };
 
 describe("AnalysisPanel", () => {
+  it("exposes the analysis region and its evidence sections as headings", () => {
+    render(<AnalysisPanel analysisResult={response} />);
+
+    expect(screen.getByRole("heading", { level: 2, name: /analysis/i })).toBeTruthy();
+    for (const name of [
+      /retrieval pipeline/i,
+      /retrieved chunks/i,
+      /overall assessment/i,
+      /strengths/i,
+      /gaps/i,
+      /risk factors/i,
+      /focus areas/i,
+      /source citations/i,
+    ]) {
+      expect(screen.getByRole("heading", { level: 3, name })).toBeTruthy();
+    }
+  });
+
   it("exposes responsive layout regions for result evidence", () => {
     const { container } = render(<AnalysisPanel analysisResult={response} />);
 
