@@ -57,10 +57,20 @@ uses readable rows at 320/390, upload disclosures and the native chooser stay
 within the page, and the footer wraps. At 768 and 1440 the explainer retains
 three readable columns and the content shell remains bounded.
 
-The local API was unavailable during browser QA, so the synthetic populated
-state returned its accessible temporary-unavailable alert. Indexed and result
-layout/heading/interaction states remain covered by the focused component
-fixtures; no populated-state screenshot is claimed.
+After starting the repository's static sample fixture locally with no database
+and a dummy model key, the populated result was captured at the same widths:
+
+| Requested viewport | Client width | Scroll width | Screenshot |
+| ---: | ---: | ---: | --- |
+| 320 | 317 | 317 | `issue-9-screenshots/result-320.png` |
+| 390 | 387 | 387 | `issue-9-screenshots/result-390.png` |
+| 768 | 765 | 765 | `issue-9-screenshots/result-768.png` |
+| 1440 | 1437 | 1437 | `issue-9-screenshots/result-1440.png` |
+
+Visual inspection confirms retrieval statistics, chunks, assessment,
+quadrants, and citations stack at 320/390, use readable tablet rows at 768,
+and retain the two-column result quadrants on desktop. All four result states
+also satisfy `scrollWidth === clientWidth`.
 
 ## Focus and target evidence
 

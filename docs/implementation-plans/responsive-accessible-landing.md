@@ -195,7 +195,7 @@ and live-region state; browser inspection validates layout and visual states.
 ### Phase 4 Tasks
 
 - [x] T011 [Plan:P4.1] Run focused tests, the full frontend suite, TypeScript, lint comparison, and the production build; resolve regressions and record any pre-existing lint baseline.
-- [ ] T012 [Plan:P4.1] Capture empty and populated/result screenshots at 320, 390, 768, and 1440 px where deterministically reachable, verify `scrollWidth <= clientWidth`, and record screenshots and measurements in the named issue-9 evidence paths.
+- [x] T012 [Plan:P4.1] Capture empty and populated/result screenshots at 320, 390, 768, and 1440 px where deterministically reachable, verify `scrollWidth <= clientWidth`, and record screenshots and measurements in the named issue-9 evidence paths.
 - [ ] T013 [Plan:P4.1] Complete and record a keyboard-only pass for native file-picker activation, clearing, query editing, analysis, and retrieval expansion; inspect focus, announcements, target sizes, contrast ratios, and reduced-motion emulation, filing any consciously deferred WCAG gap as a follow-up issue.
 
 ## Commit Checkpoints
