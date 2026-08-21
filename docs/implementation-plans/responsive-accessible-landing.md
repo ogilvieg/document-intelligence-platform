@@ -188,13 +188,13 @@ and live-region state; browser inspection validates layout and visual states.
 
 ### Phase 3 Tasks
 
-- [ ] T008 [Plan:P3.1] Add a failing focus/target contract for every interactive control class; implement shared focus-visible styling and 44 by 44 px targets, documenting any inline-link exception.
-- [ ] T009 [Plan:P3.1] Measure current foreground/background and UI-state contrast pairs, record failing evidence, adjust tokens/usages, and record computed ratios meeting 4.5:1 text and 3:1 large-text/UI thresholds.
-- [ ] T010 [Plan:P3.1] Add a failing reduced-motion stylesheet contract covering blink, scan, spin, pulse, entrance, confidence progress, and other nonessential transitions; implement the media-query override and verify it in browser emulation.
+- [x] T008 [Plan:P3.1] Add a failing focus/target contract for every interactive control class; implement shared focus-visible styling and 44 by 44 px targets, documenting inline project-resource links as the exception because their adjacent whitespace enlarges the usable line target.
+- [x] T009 [Plan:P3.1] Measure current foreground/background and UI-state contrast pairs, record failing evidence, adjust tokens/usages, and record computed ratios meeting 4.5:1 text and 3:1 large-text/UI thresholds.
+- [x] T010 [Plan:P3.1] Add a failing reduced-motion stylesheet contract covering blink, scan, spin, pulse, entrance, confidence progress, and other nonessential transitions; implement the media-query override and verify it in browser emulation.
 
 ### Phase 4 Tasks
 
-- [ ] T011 [Plan:P4.1] Run focused tests, the full frontend suite, TypeScript, lint comparison, and the production build; resolve regressions and record any pre-existing lint baseline.
+- [x] T011 [Plan:P4.1] Run focused tests, the full frontend suite, TypeScript, lint comparison, and the production build; resolve regressions and record any pre-existing lint baseline.
 - [ ] T012 [Plan:P4.1] Capture empty and populated/result screenshots at 320, 390, 768, and 1440 px where deterministically reachable, verify `scrollWidth <= clientWidth`, and record screenshots and measurements in the named issue-9 evidence paths.
 - [ ] T013 [Plan:P4.1] Complete and record a keyboard-only pass for native file-picker activation, clearing, query editing, analysis, and retrieval expansion; inspect focus, announcements, target sizes, contrast ratios, and reduced-motion emulation, filing any consciously deferred WCAG gap as a follow-up issue.
 

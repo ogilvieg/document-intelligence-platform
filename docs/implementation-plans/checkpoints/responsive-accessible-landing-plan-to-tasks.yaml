@@ -10,5 +10,5 @@ plan_items:
   P4.1: [T011, T012, T013]
 unmapped_plan_items: []
 task_count: 13
-completed_tasks: [T001, T002, T003, T004, T005, T006, T007]
-remaining_task_count: 6
+completed_tasks: [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011]
+remaining_task_count: 2
