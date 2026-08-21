@@ -209,6 +209,96 @@ describe("Home", () => {
     expect(resetSample.mock.invocationCallOrder[0]).toBeLessThan(upload.mock.invocationCallOrder[0]);
   });
 
+  it("exposes a named, focusable native file chooser", async () => {
+    const upload = vi.fn().mockResolvedValue(null);
+    mockedUseDocumentUpload.mockReturnValue({
+      upload,
+      isUploading: false,
+      uploadError: null,
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    const chooser = screen.getByLabelText(/choose document/i);
+    chooser.focus();
+    expect(document.activeElement).toBe(chooser);
+
+    await userEvent.upload(
+      chooser,
+      new File(["document"], "keyboard.txt", { type: "text/plain" }),
+    );
+    expect(upload).toHaveBeenCalledOnce();
+  });
+
+  it("announces the combined upload and indexing operation", () => {
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: true,
+      uploadError: null,
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /uploading.*indexing/i.test(status.textContent ?? "")),
+    ).toBe(true);
+  });
+
+  it("exposes upload failures as an alert", () => {
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: false,
+      uploadError: "File could not be indexed",
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(screen.getByRole("alert").textContent).toContain("File could not be indexed");
+  });
+
+  it("announces analysis progress for the indexed document", () => {
+    mockedUseRAGAnalysis.mockReturnValue({
+      analyzeWithRAG: vi.fn(),
+      isAnalyzing: true,
+      analysisError: null,
+      analysisResult: null,
+      resetAnalysis: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /analyzing/i.test(status.textContent ?? "")),
+    ).toBe(true);
+  });
+
+  it("announces analysis completion with the analyzed goal", () => {
+    mockedUseRAGAnalysis.mockReturnValue({
+      analyzeWithRAG: vi.fn(),
+      isAnalyzing: false,
+      analysisError: null,
+      analysisResult: sampleResponse.analysis,
+      resetAnalysis: vi.fn(),
+    });
+
+    render(<Home />);
+    expect(
+      screen
+        .getAllByRole("status")
+        .some(
+          (status) =>
+            /analysis complete/i.test(status.textContent ?? "") &&
+            (status.textContent ?? "").includes(sampleResponse.analysis.query),
+        ),
+    ).toBe(true);
+  });
+
   it("clears sample state before a dropped file is uploaded", async () => {
     const resetSample = vi.fn();
     const upload = vi.fn().mockResolvedValue(null);
@@ -241,14 +331,66 @@ describe("Home", () => {
   });
 
   it("renders the client page with analysis unavailable before upload", () => {
-    render(<Home />);
+    const { container } = render(<Home />);
 
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: /ingest/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: /analysis/i })).toBeTruthy();
+    for (const selector of [
+      ".site-header",
+      ".page-shell",
+      ".intro-steps",
+      ".upload-section",
+      ".upload-drop-zone",
+      ".site-footer",
+    ]) {
+      expect(container.querySelector(selector), selector).not.toBeNull();
+    }
     expect(
       screen.getByRole("button", { name: /run analysis/i }).hasAttribute(
         "disabled",
       ),
     ).toBe(true);
+  });
+
+  it("clears an indexed document with a named keyboard control", async () => {
+    const resetUpload = vi.fn();
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: false,
+      uploadError: null,
+      uploadedDocument: {
+        id: "document-123",
+        title: "Example",
+        type: "pdf",
+        source: null,
+        version: "1",
+        created_at: "2026-08-20T00:00:00Z",
+        metadata: {
+          original_filename: "example.pdf",
+          text_length: 1200,
+          parser: "pdfplumber",
+          content_type: "application/pdf",
+        },
+      },
+      resetUpload,
+    });
+
+    render(<Home />);
+    expect(
+      screen.getByRole("heading", { level: 2, name: /indexed/i }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) => /example.*indexed/i.test(status.textContent ?? "")),
+    ).toBe(true);
+    const clear = screen.getByRole("button", {
+      name: /clear indexed document/i,
+    });
+    clear.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(resetUpload).toHaveBeenCalledOnce();
   });
 
   it("scopes the homepage analysis to the active uploaded document", async () => {
@@ -281,7 +423,8 @@ describe("Home", () => {
       resetAnalysis: vi.fn(),
     });
 
-    render(<Home />);
+    const { container } = render(<Home />);
+    expect(container.querySelector(".indexed-stats")).not.toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: /run analysis/i }),
     );

@@ -1,0 +1,13 @@
+artifact: docs/implementation-plans/responsive-accessible-landing.md
+generated: 2026-08-20
+status: complete
+requirements:
+  REQ-001: [P1.1, P4.1]
+  REQ-002: [P1.1]
+  REQ-003: [P1.2, P4.1]
+  REQ-004: [P2.1]
+  REQ-005: [P2.2, P4.1]
+  REQ-006: [P1.2, P3.1, P4.1]
+  REQ-007: [P3.1, P4.1]
+  REQ-008: [P4.1]
+unmapped_requirements: []

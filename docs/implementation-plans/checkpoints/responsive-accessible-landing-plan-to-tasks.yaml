@@ -1,0 +1,14 @@
+artifact: docs/implementation-plans/responsive-accessible-landing.md
+generated: 2026-08-20
+status: in_progress
+plan_items:
+  P1.1: [T001, T002]
+  P1.2: [T003, T004]
+  P2.1: [T005]
+  P2.2: [T006, T007]
+  P3.1: [T008, T009, T010]
+  P4.1: [T011, T012, T013]
+unmapped_plan_items: []
+task_count: 13
+completed_tasks: [T001, T002, T003, T004, T005, T006, T007, T008, T009, T010, T011, T012]
+remaining_task_count: 1

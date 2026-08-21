@@ -57,7 +57,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
       >
         {n}
       </span>
-      <span
+      <h2
         style={{
           fontFamily: S.syne,
           fontSize: "12px",
@@ -68,7 +68,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
         }}
       >
         {label}
-      </span>
+      </h2>
       <div style={rule} />
     </div>
   );
@@ -181,7 +181,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
         >
           03
         </span>
-        <span
+        <h2
           style={{
             fontFamily: S.syne,
             fontSize: "12px",
@@ -192,7 +192,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           }}
         >
           Analysis
-        </span>
+        </h2>
         <div style={rule} />
         <span
           style={{
@@ -250,7 +250,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             marginBottom: "18px",
           }}
         >
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -260,8 +260,13 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Retrieval Pipeline
-          </p>
+          </h3>
           <button
+            type="button"
+            className="compact-action retrieval-toggle"
+            aria-expanded={showRetrievalDetails}
+            aria-controls="retrieval-details"
+            aria-label={`${showRetrievalDetails ? "Collapse" : "Expand"} retrieval details`}
             onClick={() =>
               startTransition(() => setShowRetrievalDetails((prev) => !prev))
             }
@@ -280,9 +285,9 @@ export const AnalysisPanel = memo(function AnalysisPanel({
         </div>
 
         <div
+          className="retrieval-stats"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
             gap: "20px",
           }}
         >
@@ -300,6 +305,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
 
         {showRetrievalDetails ? (
           <div
+            id="retrieval-details"
             style={{
               marginTop: "16px",
               paddingTop: "16px",
@@ -307,9 +313,9 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             <div
+              className="retrieval-details"
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
                 gap: "14px",
               }}
             >
@@ -374,7 +380,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
       {analysisResult.retrieved_chunks &&
       analysisResult.retrieved_chunks.length > 0 ? (
         <div style={{ marginBottom: "14px" }}>
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -385,7 +391,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Retrieved Chunks ({analysisResult.retrieved_chunks.length})
-          </p>
+          </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {analysisResult.retrieved_chunks.map((chunk, idx) => (
               <div
@@ -507,7 +513,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           padding: "22px 24px",
         }}
       >
-        <p
+        <h3
           style={{
             fontFamily: S.mono,
             fontSize: "9px",
@@ -518,7 +524,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
           }}
         >
           Overall Assessment
-        </p>
+        </h3>
         <p
           style={{
             fontSize: "14px",
@@ -575,9 +581,9 @@ export const AnalysisPanel = memo(function AnalysisPanel({
 
       {/* 4-quadrant grid ─── */}
       <div
+        className="result-quadrants"
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
           gap: "10px",
           marginBottom: "14px",
         }}
@@ -590,7 +596,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -601,7 +607,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Strengths
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.strengths}
               sigil="+"
@@ -617,7 +623,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -628,7 +634,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Gaps
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.gaps}
               sigil="~"
@@ -644,7 +650,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -655,7 +661,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Risk Factors
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.risk_factors}
               sigil="!"
@@ -671,7 +677,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               padding: "20px",
             }}
           >
-            <p
+            <h3
               style={{
                 fontFamily: S.mono,
                 fontSize: "9px",
@@ -682,7 +688,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
               }}
             >
               Focus Areas
-            </p>
+            </h3>
             <SignedList
               items={analysisResult.output.recommended_focus}
               sigil="→"
@@ -701,7 +707,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             padding: "20px 24px",
           }}
         >
-          <p
+          <h3
             style={{
               fontFamily: S.mono,
               fontSize: "9px",
@@ -712,8 +718,9 @@ export const AnalysisPanel = memo(function AnalysisPanel({
             }}
           >
             Source Citations ({analysisResult.citations.length})
-          </p>
+          </h3>
           <div
+            className="citation-list"
             style={{ display: "flex", flexDirection: "column", gap: "12px" }}
           >
             {analysisResult.citations.map((c, i) => (
@@ -725,6 +732,7 @@ export const AnalysisPanel = memo(function AnalysisPanel({
                 }}
               >
                 <div
+                  className="citation-meta"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -858,17 +866,25 @@ export default function Home() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const workflowStatus = isUploading
+    ? "Uploading and indexing document."
+    : isAnalyzing
+      ? "Analyzing the indexed document."
+    : analysisResult
+      ? `Analysis complete for: ${analysisResult.query}`
+    : uploadedDocument
+      ? `${uploadedDocument.title} indexed and ready for analysis.`
+      : null;
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "var(--bg-base)" }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header
+        className="site-header"
         style={{
           borderBottom: "1px solid var(--border)",
-          padding: "18px 40px",
-          display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           backgroundColor: "var(--bg-surface)",
         }}
       >
@@ -968,8 +984,14 @@ export default function Home() {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div
-        style={{ maxWidth: "860px", margin: "0 auto", padding: "52px 40px" }}
+        className="page-shell"
+        style={{ maxWidth: "860px", margin: "0 auto" }}
       >
+        {workflowStatus ? (
+          <p className="sr-only workflow-status" role="status" aria-live="polite">
+            {workflowStatus}
+          </p>
+        ) : null}
         <section
           aria-labelledby="homepage-benefit"
           style={{ marginBottom: "36px", maxWidth: "720px" }}
@@ -1026,6 +1048,8 @@ export default function Home() {
           >
             {/* Dismiss */}
             <button
+              type="button"
+              className="compact-action intro-dismiss"
               onClick={handleDismissIntro}
               aria-label="Dismiss introduction"
               style={{
@@ -1139,7 +1163,7 @@ export default function Home() {
         )}
 
         {/* ── 01 INGEST ──────────────────────────────────────────────────── */}
-        <section style={{ marginBottom: "40px" }}>
+        <section className="upload-section" style={{ marginBottom: "40px" }}>
           <SectionLabel n="01" label="Ingest" />
 
           <div className="sample-entry">
@@ -1201,6 +1225,8 @@ export default function Home() {
                 {"  "}PDF · MD · HTML · TXT — max 10 MB
               </p>
               <button
+                type="button"
+                className="compact-action upload-info-dismiss"
                 onClick={handleDismissInfo}
                 style={{
                   fontFamily: S.mono,
@@ -1211,7 +1237,7 @@ export default function Home() {
                   border: "none",
                   lineHeight: 1,
                 }}
-                aria-label="Dismiss"
+                aria-label="Dismiss upload requirements"
               >
                 ×
               </button>
@@ -1220,7 +1246,7 @@ export default function Home() {
 
           {/* Drop zone */}
           <div
-            onClick={() => !isUploading && fileInputRef.current?.click()}
+            className="upload-drop-zone"
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -1232,19 +1258,22 @@ export default function Home() {
               backgroundColor: dragActive
                 ? "var(--amber-dim)"
                 : "var(--bg-surface)",
-              padding: "52px 32px",
               textAlign: "center",
-              cursor: isUploading ? "wait" : "pointer",
+              cursor: isUploading ? "wait" : "default",
               transition: "border-color 0.15s, background-color 0.15s",
               boxShadow: dragActive
                 ? "inset 0 0 32px rgba(92,61,30,0.06)"
                 : "none",
             }}
           >
+            <label className="file-chooser-label" htmlFor="document-upload">
+              Choose document
+            </label>
             <input
+              id="document-upload"
               ref={fileInputRef}
               type="file"
-              style={{ display: "none" }}
+              className="file-chooser"
               accept=".pdf,.md,.html,.txt"
               onChange={handleChange}
               disabled={isUploading}
@@ -1314,7 +1343,7 @@ export default function Home() {
                 >
                   {dragActive
                     ? "> release to upload"
-                    : "> drop file here or click to browse"}
+                    : "> drop file here or choose a document"}
                   <span
                     style={{
                       animation: "blink 1s step-end infinite",
@@ -1331,6 +1360,7 @@ export default function Home() {
           {/* Upload error */}
           {uploadError && (
             <div
+              role="alert"
               style={{
                 marginTop: "10px",
                 padding: "12px 16px",
@@ -1378,7 +1408,7 @@ export default function Home() {
               >
                 02
               </span>
-              <span
+              <h2
                 style={{
                   fontFamily: S.syne,
                   fontSize: "12px",
@@ -1389,9 +1419,12 @@ export default function Home() {
                 }}
               >
                 Indexed
-              </span>
+              </h2>
               <div style={rule} />
               <button
+                type="button"
+                className="compact-action clear-document"
+                aria-label="Clear indexed document"
                 onClick={handleReset}
                 style={{
                   fontFamily: S.mono,
@@ -1461,9 +1494,9 @@ export default function Home() {
               </div>
 
               <div
+                className="indexed-stats"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
                   gap: "20px",
                   paddingTop: "16px",
                   borderTop: "1px solid rgba(45,106,79,0.12)",
@@ -1591,6 +1624,7 @@ export default function Home() {
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
         <footer
+          className="site-footer"
           style={{
             marginTop: "72px",
             paddingTop: "24px",

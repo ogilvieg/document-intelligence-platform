@@ -5,6 +5,19 @@ import { describe, expect, it, vi } from "vitest";
 import { AnalysisComposer } from "./analysis-composer";
 
 describe("AnalysisComposer", () => {
+  it("exposes analysis failures as an alert", () => {
+    render(
+      <AnalysisComposer
+        documentId="document-123"
+        isAnalyzing={false}
+        analysisError="Analysis service timed out"
+        onAnalyze={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("timed out");
+  });
+
   it("submits the normalized editable goal for exactly the active document", async () => {
     const onAnalyze = vi.fn().mockResolvedValue(null);
     render(
