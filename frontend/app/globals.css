@@ -248,6 +248,72 @@ body::after {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 40px;
+}
+
+.page-shell {
+  width: 100%;
+  padding: 52px 40px;
+}
+
+.upload-section,
+.upload-drop-zone,
+.site-footer {
+  min-width: 0;
+}
+
+.upload-drop-zone {
+  padding: 52px 32px;
+}
+
+.file-chooser {
+  width: min(100%, 420px);
+  margin: 18px auto 0;
+  color: var(--text-secondary);
+  font: 11px var(--font-ibm-plex-mono);
+}
+
+.file-chooser::file-selector-button {
+  min-height: 44px;
+  margin-right: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--cyan);
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font: 700 11px var(--font-ibm-plex-mono);
+  cursor: pointer;
+}
+
+.file-chooser-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font: 11px var(--font-ibm-plex-mono);
+}
+
+.indexed-stats,
+.retrieval-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.retrieval-details,
+.result-quadrants {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.indexed-stats > *,
+.retrieval-stats > *,
+.retrieval-details > *,
+.result-quadrants > *,
+.citation-list,
+.citation-meta > * {
+  min-width: 0;
+}
+
 .analysis-goal-heading {
   display: flex;
   justify-content: space-between;
@@ -364,8 +430,39 @@ body::after {
 }
 
 @media (max-width: 520px) {
+  .site-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .site-header > :last-child {
+    justify-content: flex-start !important;
+  }
+
+  .page-shell {
+    padding: 32px 16px;
+  }
+
   .intro-steps {
     grid-template-columns: 1fr;
+  }
+
+  .upload-drop-zone {
+    padding: 36px 16px;
+  }
+
+  .indexed-stats,
+  .retrieval-stats,
+  .retrieval-details,
+  .result-quadrants {
+    grid-template-columns: 1fr;
+  }
+
+  .citation-meta {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .analysis-composer {
@@ -387,5 +484,20 @@ body::after {
   .sample-entry button,
   .sample-error button {
     width: 100%;
+  }
+}
+
+@media (min-width: 521px) and (max-width: 768px) {
+  .site-header {
+    padding-inline: 24px;
+  }
+
+  .page-shell {
+    padding: 44px 24px;
+  }
+
+  .retrieval-details,
+  .result-quadrants {
+    grid-template-columns: 1fr;
   }
 }

@@ -209,6 +209,28 @@ describe("Home", () => {
     expect(resetSample.mock.invocationCallOrder[0]).toBeLessThan(upload.mock.invocationCallOrder[0]);
   });
 
+  it("exposes a named, focusable native file chooser", async () => {
+    const upload = vi.fn().mockResolvedValue(null);
+    mockedUseDocumentUpload.mockReturnValue({
+      upload,
+      isUploading: false,
+      uploadError: null,
+      uploadedDocument: null,
+      resetUpload: vi.fn(),
+    });
+
+    render(<Home />);
+    const chooser = screen.getByLabelText(/choose document/i);
+    chooser.focus();
+    expect(document.activeElement).toBe(chooser);
+
+    await userEvent.upload(
+      chooser,
+      new File(["document"], "keyboard.txt", { type: "text/plain" }),
+    );
+    expect(upload).toHaveBeenCalledOnce();
+  });
+
   it("clears sample state before a dropped file is uploaded", async () => {
     const resetSample = vi.fn();
     const upload = vi.fn().mockResolvedValue(null);
@@ -241,14 +263,56 @@ describe("Home", () => {
   });
 
   it("renders the client page with analysis unavailable before upload", () => {
-    render(<Home />);
+    const { container } = render(<Home />);
 
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    for (const selector of [
+      ".site-header",
+      ".page-shell",
+      ".intro-steps",
+      ".upload-section",
+      ".upload-drop-zone",
+      ".site-footer",
+    ]) {
+      expect(container.querySelector(selector), selector).not.toBeNull();
+    }
     expect(
       screen.getByRole("button", { name: /run analysis/i }).hasAttribute(
         "disabled",
       ),
     ).toBe(true);
+  });
+
+  it("clears an indexed document with a named keyboard control", async () => {
+    const resetUpload = vi.fn();
+    mockedUseDocumentUpload.mockReturnValue({
+      upload: vi.fn(),
+      isUploading: false,
+      uploadError: null,
+      uploadedDocument: {
+        id: "document-123",
+        title: "Example",
+        type: "pdf",
+        source: null,
+        version: "1",
+        created_at: "2026-08-20T00:00:00Z",
+        metadata: {
+          original_filename: "example.pdf",
+          text_length: 1200,
+          parser: "pdfplumber",
+          content_type: "application/pdf",
+        },
+      },
+      resetUpload,
+    });
+
+    render(<Home />);
+    const clear = screen.getByRole("button", {
+      name: /clear indexed document/i,
+    });
+    clear.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(resetUpload).toHaveBeenCalledOnce();
   });
 
   it("scopes the homepage analysis to the active uploaded document", async () => {
@@ -281,7 +345,8 @@ describe("Home", () => {
       resetAnalysis: vi.fn(),
     });
 
-    render(<Home />);
+    const { container } = render(<Home />);
+    expect(container.querySelector(".indexed-stats")).not.toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: /run analysis/i }),
     );

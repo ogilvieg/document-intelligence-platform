@@ -57,6 +57,18 @@ const response: RAGAnalysisResponse = {
 };
 
 describe("AnalysisPanel", () => {
+  it("exposes responsive layout regions for result evidence", () => {
+    const { container } = render(<AnalysisPanel analysisResult={response} />);
+
+    for (const selector of [
+      ".retrieval-stats",
+      ".result-quadrants",
+      ".citation-list",
+    ]) {
+      expect(container.querySelector(selector), selector).not.toBeNull();
+    }
+  });
+
   it("labels the completed result with the backend-echoed query", () => {
     render(<AnalysisPanel analysisResult={response} />);
 
@@ -65,7 +77,15 @@ describe("AnalysisPanel", () => {
 
   it("retains retrieval, generation, cost, and creation evidence", async () => {
     render(<AnalysisPanel analysisResult={response} />);
-    await userEvent.click(screen.getByRole("button", { name: /expand/i }));
+    const toggle = screen.getByRole("button", {
+      name: /expand retrieval details/i,
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("aria-controls")).toBe("retrieval-details");
+
+    toggle.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
 
     for (const value of [
       response.retrieval_metadata.retrieval_timestamp,
