@@ -81,7 +81,7 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 │         │                                                        │
 │         ▼                                                        │
 │  ┌──────────────┐                                               │
-│  │     LLM      │  (OpenAI GPT-4o)                             │
+│  │     LLM      │  (OpenAI)                                    │
 │  │   Service    │                                               │
 │  └──────────────┘                                               │
 └─────────────────────────────────────────────────────────────────┘
@@ -94,7 +94,7 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 3. **Filtering**: Apply document_ids, doc_type, or custom metadata filters
 4. **Ranking**: Sort by similarity score and apply the default 0.3 threshold. If one explicitly selected document has no matches, retry that same scoped search at 0.0 and record the fallback.
 5. **Context Building**: Format top-k chunks with source references
-6. **LLM Analysis**: GPT-4o generates response with chunk citations
+6. **LLM Analysis**: An OpenAI LLM generates a response with chunk citations
 7. **Traceability**: Return full metadata (chunks used, scores, tokens, cost)
 
 ### Why This Stack
@@ -104,7 +104,7 @@ This system solves that with a **Retrieval-Augmented Generation (RAG)** pipeline
 | **Vector DB**          | pgvector + Supabase    | Pinecone, Weaviate     | One platform for relational + vector data — no separate service to operate          |
 | **API Framework**      | FastAPI                | Flask, Django          | Native async, auto-generated OpenAPI docs, Pydantic models shared with DB layer     |
 | **Embedding Model**    | text-embedding-3-small | text-embedding-3-large | 5× cheaper; no measurable retrieval quality difference at this document scale       |
-| **LLM**                | GPT-4o                 | GPT-4o-mini, Claude    | Best structured JSON output quality; cost acceptable at low query volume            |
+| **LLM**                | OpenAI                 | Other hosted LLMs     | Strong structured JSON output quality; cost acceptable at low query volume           |
 | **Retrieval Approach** | RAG                    | Fine-tuning            | Documents are dynamic and traceability is required — fine-tuning can't cite sources |
 
 ---
@@ -470,7 +470,7 @@ The RAG (Retrieval-Augmented Generation) pipeline combines semantic search with 
    - Example: `[CHUNK 1] [Doc: resume.pdf, Chunk 3] Python: 5 years...`
 
 4. **LLM Analysis**
-   - GPT-4o receives query + formatted context
+   - The configured OpenAI LLM receives the query and formatted context
    - Generates structured response citing source chunks
    - Configured temperature (default: 0.7) for creativity vs. precision
 

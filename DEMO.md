@@ -20,7 +20,7 @@ This project showcases **production-ready full-stack AI development** with:
 
 - **Document Processing**: Multi-format ingestion (PDF, Markdown, HTML, text)
 - **Intelligent Chunking**: Semantic text splitting with configurable parameters
-- **LLM Analysis**: GPT-4o with structured JSON outputs and confidence scoring
+- **LLM Analysis**: OpenAI LLM with structured JSON outputs and confidence scoring
 - **Cost Tracking**: Complete token usage and cost transparency
 - **Modern Stack**: FastAPI + Next.js + TypeScript
 
@@ -85,7 +85,7 @@ This project showcases **production-ready full-stack AI development** with:
 
 - **FastAPI** with async/await for high performance
 - **Supabase + pgvector** for vector similarity search
-- **OpenAI GPT-4o** for analysis, text-embedding-3-small for embeddings
+- **OpenAI LLM** for analysis, text-embedding-3-small for embeddings
 - **Pydantic** for type-safe data validation
 - **Structured logging** with comprehensive traceability
 
@@ -138,7 +138,7 @@ Organizations need to quickly analyze multiple documents to extract insights and
 | **Frontend**   | Next.js 14, React, TypeScript         | Modern SPA with server-side rendering |
 | **Backend**    | FastAPI, Python 3.11, Uvicorn         | High-performance async API            |
 | **Database**   | Supabase (PostgreSQL) + pgvector      | Cloud database with vector search     |
-| **AI/ML**      | OpenAI GPT-4o, text-embedding-3-small | Language model and embeddings         |
+| **AI/ML**      | OpenAI LLM, text-embedding-3-small    | Language model and embeddings         |
 | **Testing**    | pytest, FastAPI TestClient            | Comprehensive automated testing       |
 | **Deployment** | Vercel (frontend), Render (backend)   | Cloud-native deployment               |
 | **DevOps**     | Docker, docker-compose                | Containerization for consistency      |

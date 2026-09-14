@@ -4,6 +4,7 @@ export const alt =
   "DocSage document intelligence with evidence-backed answers";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const technologyLine = "RAG · PGVECTOR · OPENAI";
 
 export default function OpenGraphImage() {
   return new ImageResponse(
@@ -150,7 +151,7 @@ export default function OpenGraphImage() {
           letterSpacing: "0.08em",
         }}
       >
-        <span>RAG · PGVECTOR · GPT-4O</span>
+        <span>{technologyLine}</span>
         <span>DOCSAGE.PHOENIX7.DEV</span>
       </div>
     </div>,
