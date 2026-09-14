@@ -1,7 +1,8 @@
 # Local planning and workflow files
 game_plan.md
 project-context.md
-INTERVIEW_GUIDE.md
+# Keep private interview material out of this public repository.
+**/*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww]*
 .github/
 docs/implementation-notes/
 docs/study-guides/

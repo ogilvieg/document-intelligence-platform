@@ -961,7 +961,7 @@ export default function Home() {
               letterSpacing: "0.12em",
             }}
           >
-            RAG · pgvector · gpt-4o
+            RAG · pgvector · OpenAI
           </span>
         </div>
       </header>
@@ -1098,7 +1098,7 @@ export default function Home() {
                   ],
                   [
                     "03 — Analyse",
-                    "GPT-4o synthesises the retrieved chunks into a structured report. Every claim is grounded in source citations.",
+                    "An OpenAI LLM synthesises the retrieved chunks into a structured report. Every claim is grounded in source citations.",
                     "var(--purple)",
                   ],
                 ] as [string, string, string][]
@@ -1627,7 +1627,7 @@ export default function Home() {
               letterSpacing: "0.12em",
             }}
           >
-            text-embedding-3-small · pgvector · gpt-4o
+            text-embedding-3-small · pgvector · OpenAI
           </p>
           <p
             style={{

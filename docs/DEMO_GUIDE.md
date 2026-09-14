@@ -232,7 +232,7 @@ Response:
 
 - **FastAPI** for high-performance API
 - **Pydantic** for schema validation
-- **OpenAI GPT-4 Turbo** for analysis
+- **OpenAI LLM** for analysis
 - **pdfplumber + PyPDF2** for PDF parsing
 - **BeautifulSoup** for HTML parsing
 - **Structured logging** with structlog

@@ -76,6 +76,13 @@ describe("Home", () => {
     });
   });
 
+  it("describes the public AI stack without naming a model version", () => {
+    render(<Home />);
+
+    expect(document.body.textContent).not.toMatch(/gpt-?\d/i);
+    expect(document.body.textContent).toMatch(/openai/i);
+  });
+
   it("does not report online before a successful health signal", () => {
     render(<Home />);
 
